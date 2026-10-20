@@ -3,7 +3,7 @@
 #
 # Installs Homebrew packages and omp, then optionally:
 #   - clones an omp agent-config repo (shared settings)
-#   - wires zsh: completions, machine-local overlay, bare-omp cockpit wrapper
+#   - wires zsh: completions, machine-local overlay, bare-omp workspace wrapper
 #   - optionally installs Obsidian (cask) and creates a vault directory
 #   - bootstraps the environment: AGENTS.local.md, config.local.yml,
 #     ~/.omp/env, and the vault's .omp/config.yml
@@ -26,7 +26,7 @@
 #   --template-repo URL   Source used by "new" (default: the agent repo URL)
 #   --shell PATH          omp shellPath (default: $SHELL, usually /bin/zsh)
 #   --skip-github         Do not offer GitHub CLI login
-#   --no-cockpit          Do not add the bare-omp cockpit wrapper
+#   --no-workspace        Do not add the bare-omp workspace wrapper
 #   --devtools            Install pyright + debugpy
 #   --no-devtools         Skip devtools (default)
 #   --no-packages         Do not install Homebrew packages
@@ -58,14 +58,14 @@ VAULT_REPO=""
 SHELL_PATH="${SHELL:-/bin/zsh}"
 ASSUME_YES=0
 SKIP_GITHUB=0
-WITH_COCKPIT=1
+WITH_WORKSPACE=1
 INSTALL_DEVTOOLS=0
 INSTALL_PACKAGES=1
 INSTALL_OBSIDIAN=0
 API_KEY="${DEEPSEEK_API_KEY:-}"
 AGENT_REPO_SET=0
 SKILL_DIR=""
-COCKPIT_SET=0
+WORKSPACE_SET=0
 DEVTOOLS_SET=0
 PACKAGES_SET=0
 OBSIDIAN_SET=0
@@ -122,7 +122,7 @@ while (( $# )); do
     --shell)        SHELL_PATH="${2:-}"; shift 2 ;;
     --shell=*)      SHELL_PATH="${1#--shell=}"; shift ;;
     --skip-github)  SKIP_GITHUB=1; shift ;;
-    --no-cockpit)   WITH_COCKPIT=0; COCKPIT_SET=1; shift ;;
+    --no-cockpit|--no-workspace) WITH_WORKSPACE=0; WORKSPACE_SET=1; shift ;;
     --devtools)     INSTALL_DEVTOOLS=1; DEVTOOLS_SET=1; shift ;;
     --no-devtools)  INSTALL_DEVTOOLS=0; DEVTOOLS_SET=1; shift ;;
     --no-packages)  INSTALL_PACKAGES=0; PACKAGES_SET=1; shift ;;
@@ -166,8 +166,8 @@ if (( ! ASSUME_YES )) && [[ -t 0 ]]; then
   if (( ! PACKAGES_SET )) && { ! have tmux || ! have node }; then
     confirm 'Install missing Homebrew packages (tmux, node, ...)?' y || INSTALL_PACKAGES=0
   fi
-  if (( ! COCKPIT_SET )); then
-    confirm 'Add the bare-omp cockpit wrapper?' y || WITH_COCKPIT=0
+  if (( ! WORKSPACE_SET )); then
+    confirm 'Add the bare-omp workspace wrapper?' y || WITH_WORKSPACE=0
   fi
   if (( ! DEVTOOLS_SET )); then
     confirm 'Install pyright and debugpy?' n && INSTALL_DEVTOOLS=1 || INSTALL_DEVTOOLS=0
@@ -365,7 +365,7 @@ if [[ -f "$BOOTSTRAP" ]]; then
   info "Bootstrapping the environment context"
   bootstrap_args=(--shell "$SHELL_PATH")
   [[ -n "$VAULT_DIR" ]] && bootstrap_args+=(--vault "$VAULT_DIR")
-  (( WITH_COCKPIT )) || bootstrap_args+=(--no-cockpit)
+  (( WITH_WORKSPACE )) || bootstrap_args+=(--no-workspace)
   zsh "$BOOTSTRAP" "${bootstrap_args[@]}" || warn "Context bootstrap failed; rerun: zsh $BOOTSTRAP"
 else
   warn "Context bootstrap script not found; skipping AGENTS.local.md/config.local.yml."
@@ -373,8 +373,6 @@ fi
 if [[ -f "$AGENT_DIR/config.local.yml" ]]; then
   export PI_CONFIG_FILES="$AGENT_DIR/config.local.yml"
 fi
-
-COCKPIT="$AGENT_DIR/launchers/omp-unity-macos.sh"
 
 if (( INSTALL_DEVTOOLS )); then
   info "Installing pyright and debugpy"
@@ -407,15 +405,8 @@ fi
 # ---------------------------------------------------------------- verify
 info "Checking"
 omp --version
-if [[ -f "$AGENT_DIR/config.local.yml" ]]; then
-  printf 'shellPath: '
-  omp config get shellPath
-fi
 if [[ -n "$VAULT_DIR" ]]; then
   (cd "$VAULT_DIR" && omp skill list) || warn "Skill discovery failed; check the vault's .omp/config.yml."
-fi
-if [[ -f "$COCKPIT" ]]; then
-  zsh -n "$COCKPIT" && printf 'cockpit launcher: syntax ok\n'
 fi
 
 cat <<EOF
