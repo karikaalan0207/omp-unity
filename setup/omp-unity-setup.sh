@@ -30,6 +30,7 @@
 #   --devtools            Install pyright + debugpy
 #   --no-devtools         Skip devtools (default)
 #   --no-packages         Do not install Homebrew packages
+#   --skills-dir PATH     Extra skill directory to register (optional)
 #   --api-key KEY         DeepSeek API key (optional)
 #   --yes                 Accept defaults; never prompt
 #   -h, --help            Show this help
@@ -125,6 +126,8 @@ while (( $# )); do
     --devtools)     INSTALL_DEVTOOLS=1; DEVTOOLS_SET=1; shift ;;
     --no-devtools)  INSTALL_DEVTOOLS=0; DEVTOOLS_SET=1; shift ;;
     --no-packages)  INSTALL_PACKAGES=0; PACKAGES_SET=1; shift ;;
+    --skills-dir)   SKILL_DIR="${2:-}"; shift 2 ;;
+    --skills-dir=*) SKILL_DIR="${1#--skills-dir=}"; shift ;;
     --api-key)      API_KEY="${2:-}"; shift 2 ;;
     --api-key=*)    API_KEY="${1#--api-key=}"; shift ;;
     --yes|-y)       ASSUME_YES=1; shift ;;
@@ -169,7 +172,7 @@ if (( ! ASSUME_YES )) && [[ -t 0 ]]; then
   if (( ! DEVTOOLS_SET )); then
     confirm 'Install pyright and debugpy?' n && INSTALL_DEVTOOLS=1 || INSTALL_DEVTOOLS=0
   fi
-  SKILL_DIR="$(prompt 'Extra skills directory (blank to skip)' '')" 
+  [[ -n "$SKILL_DIR" ]] || SKILL_DIR="$(prompt 'Extra skills directory (blank to skip)' '')"
   if (( ! OBSIDIAN_SET )); then
     confirm 'Install Obsidian (cask)?' n && INSTALL_OBSIDIAN=1 || INSTALL_OBSIDIAN=0
   fi
