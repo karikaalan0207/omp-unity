@@ -45,7 +45,8 @@ Run `omp` from a normal Terminal to attach to the `unity` session; if it does
 not exist, the workspace is created. Do not run it from inside an omp pane
 (`OMP_COCKPIT_DIR` set) — that starts a nested omp instead.
 
-- Detach: `Ctrl-b d`
+- Quitting the chat (`/quit` or Ctrl-D) closes its whole tab
+- Detach: `Ctrl-b d` (keeps the workspace running)
 - Re-enter: `omp`
 - Close the current tab: `x` in the board, then `y`
 - Back to the previous tab: `Ctrl-b l`

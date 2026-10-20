@@ -77,6 +77,9 @@ if [[ -n "$SESSION" ]]; then
 elif [[ -n "$PROMPT" ]]; then
   OMP_CMD="$OMP_CMD ${(q)PROMPT}"
 fi
+
+# Quitting the chat closes its whole workspace tab. Detaching does not.
+OMP_CMD="$OMP_CMD; if [ -n \"\$TMUX_PANE\" ]; then \"$TMUX_BIN\" kill-window -t \"\$TMUX_PANE\" 2>/dev/null; fi"
 VIEWER_CMD="PATH=${(q)PATH} ${(q)NODE_BIN} ${(q)VIEWER} ${(q)STATE_DIR} ${(q)SELF}"
 BOARD_CMD="PATH=${(q)PATH} UNITY_VAULT=${(q)VAULT} ${(q)NODE_BIN} ${(q)BOARD} ${(q)VAULT} ${(q)SELF}"
 
