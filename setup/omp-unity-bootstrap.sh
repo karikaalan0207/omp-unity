@@ -216,6 +216,9 @@ printf 'agent:   %s\n' "$AGENT_DIR"
 printf 'overlay: %s\n' "${PI_CONFIG_FILES:-<none>}"
 printf 'vault:   %s\n' "${VAULT_DIR:-<none>}"
 printf 'zshrc:   %s\n' "$ZSHENV"
+if [[ -f "$AGENT_DIR/setup/omp-unity-update.sh" ]]; then
+  printf 'update:  zsh %s/setup/omp-unity-update.sh\n' "$AGENT_DIR"
+fi
 
 if have omp && [[ -f "$AGENT_DIR/config.local.yml" ]]; then
   printf 'shellPath: '

@@ -4,7 +4,8 @@
 // [ ] tabs, Tab pane, ? help, q quit.
 
 import { spawn, spawnSync } from "node:child_process";
-import { basename } from "node:path";
+import { existsSync, readFileSync } from "node:fs";
+import { basename, dirname, join } from "node:path";
 import {
 	createItem,
 	createProject,
@@ -22,6 +23,15 @@ import {
 
 const vault = process.argv[2];
 const launcher = process.argv[3];
+const agentDir = launcher ? join(dirname(launcher), "..") : "";
+let version = "";
+if (agentDir) {
+	try {
+		version = readFileSync(join(agentDir, "VERSION"), "utf8").trim();
+	} catch {
+		version = "";
+	}
+}
 if (!vault) {
 	console.error("usage: node unity-board.mjs <vault> [launcher]");
 	process.exit(1);
@@ -122,7 +132,7 @@ function render() {
 	const visibleProjects = projectList.slice(projectStart, projectStart + projectRows);
 
 	const output = [
-		line(`UNITY  ${basename(vault)}`, columns, BOLD + ACCENT),
+		line(`UNITY  ${basename(vault)}${version ? `  v${version}` : ""}`, columns, BOLD + ACCENT),
 		line(`FOCUS  ${focusItem ? `[${focusItem.status}] ${focusItem.title}` : "— (f to set)"}`, columns, focusItem ? "" : DIM),
 		line("─".repeat(columns), columns, DIM),
 		line(`ITEMS  ${list.length}${view === "items" ? "  ←" : ""}`, columns, BOLD),
@@ -138,6 +148,7 @@ function render() {
 		output.push(line("  d         delete (asks y/n)", columns, DIM));
 		output.push(line("  r / m     rename / move item", columns, DIM));
 		output.push(line("  x         close this tab", columns, DIM));
+		output.push(line("  u         update the runtime", columns, DIM));
 		output.push(line("  Ctrl-W    delete word while typing", columns, DIM));
 		output.push(line("  [ ]       previous / next tab", columns, DIM));
 		output.push(line("  Tab       next pane", columns, DIM));
@@ -186,7 +197,7 @@ function render() {
 		output.push(line(`> ${label}: ${input}█`, columns, ACCENT));
 	} else {
 		output.push(line(message || "j/k move · space status · enter open · f focus · v projects", columns, DIM));
-		output.push(line("n item · p project · d delete · r rename · m move · ? help · q", columns, DIM));
+		output.push(line("n item · p project · d delete · r rename · m move · u update · ? help · q", columns, DIM));
 	}
 
 	while (output.length < rows) output.push("".padEnd(columns));
@@ -260,6 +271,26 @@ function requestDelete() {
 		const project = currentProject();
 		if (project) confirm = { kind: "project", id: project.id, label: project.title };
 	}
+}
+
+function updateRuntime() {
+	if (!agentDir) {
+		message = "no agent dir";
+		return;
+	}
+	const updater = join(agentDir, "setup", "omp-unity-update.sh");
+	if (!existsSync(updater)) {
+		message = "updater missing; rerun the installer";
+		return;
+	}
+	if (!process.env.TMUX) {
+		message = "update needs a tmux workspace";
+		return;
+	}
+	const quoted = `'${updater.replace(/'/g, `'\\''`)}'`;
+	const command = `zsh ${quoted}; printf '\\nPress Enter to close.'; read -r`;
+	const result = spawnSync("tmux", ["display-popup", "-E", "-w", "80%", "-h", "60%", "-T", "omp-unity update", command], { stdio: "ignore" });
+	message = result.status === 0 ? "update finished; restart: tmux kill-session -t unity && omp" : "update failed";
 }
 
 function requestCloseTab() {
@@ -407,6 +438,9 @@ function handleKey(key) {
 			break;
 		case "x":
 			requestCloseTab();
+			break;
+		case "u":
+			updateRuntime();
 			break;
 		case "?":
 			help = true;

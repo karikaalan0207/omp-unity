@@ -89,6 +89,18 @@ Everything happens in the board pane:
 From Obsidian you can still create `Unity/items/<id>.md` with the frontmatter
 below; the board picks it up on the next refresh.
 
+## Updates
+
+```bash
+zsh ~/.omp/agent/setup/omp-unity-update.sh --check
+zsh ~/.omp/agent/setup/omp-unity-update.sh
+```
+
+`u` in the board runs the same update in a tmux popup. It refreshes the Unity
+runtime (launcher, board, viewer, store, extension, bootstrap, updater) from
+the public repo. Your context repo, AGENTS.local.md, skills, and vault are
+never touched. Restart the workspace afterwards.
+
 ## Sessions
 
 Opening an item:
