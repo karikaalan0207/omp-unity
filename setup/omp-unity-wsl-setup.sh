@@ -33,8 +33,10 @@ ZSHENV="${OMP_ZSHRC:-$HOME/.zshrc}"
 DEFAULT_REPO="https://github.com/karikaalan0207/omp-unity.git"
 TEMPLATE_REPO="${TEMPLATE_REPO:-$DEFAULT_REPO}"
 AGENT_REPO="$DEFAULT_REPO"
+AGENT_REPO_SET=0
 NEW_CONTEXT=0
 VAULT=""
+VAULT_SET=0
 SHELL_PATH=""
 SKILL_DIR=""
 SKIP_GITHUB=0
@@ -56,10 +58,10 @@ usage() {
 
 while (( $# )); do
   case "$1" in
-    --vault)          VAULT="${2:-}"; shift 2 ;;
-    --vault=*)        VAULT="${1#--vault=}"; shift ;;
-    --context-repo)   AGENT_REPO="${2:-}"; shift 2 ;;
-    --context-repo=*) AGENT_REPO="${1#--context-repo=}"; shift ;;
+    --vault)          VAULT="${2:-}"; VAULT_SET=1; shift 2 ;;
+    --vault=*)        VAULT="${1#--vault=}"; VAULT_SET=1; shift ;;
+    --context-repo)   AGENT_REPO="${2:-}"; AGENT_REPO_SET=1; shift 2 ;;
+    --context-repo=*) AGENT_REPO="${1#--context-repo=}"; AGENT_REPO_SET=1; shift ;;
     --template-repo)  TEMPLATE_REPO="${2:-}"; shift 2 ;;
     --template-repo=*) TEMPLATE_REPO="${1#--template-repo=}"; shift ;;
     --shell)          SHELL_PATH="${2:-}"; shift 2 ;;
@@ -118,28 +120,10 @@ run() {
 is_wsl || die "Run this inside WSL2 Ubuntu, not on the Windows host."
 (( EUID != 0 )) || die "Run as your own user, not with sudo. Use sudo only when prompted."
 
-if [[ "$AGENT_REPO" == "new" ]]; then
-  NEW_CONTEXT=1
-  AGENT_REPO="$TEMPLATE_REPO"
-fi
-[[ "$AGENT_REPO" == "none" ]] && AGENT_REPO=""
-
 export PATH="$HOME/.local/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin${PATH:+:$PATH}"
 
 TMP_OVERLAY=""
 trap '[[ -n "$TMP_OVERLAY" ]] && rm -rf "$TMP_OVERLAY"' EXIT
-
-if [[ ! -f "$OVERLAY_DIR/launchers/cockpit-viewer.mjs" ]]; then
-  if (( DRY )); then
-    info "would fetch the omp-unity runtime from $DEFAULT_REPO"
-  else
-    TMP_OVERLAY="$(mktemp -d "${TMPDIR:-/tmp}/omp-unity-runtime.XXXXXX")"
-    info "Fetching the omp-unity runtime"
-    git clone --depth 1 "$DEFAULT_REPO" "$TMP_OVERLAY/omp-unity" >/dev/null 2>&1 || \
-      die "could not fetch the omp-unity runtime from $DEFAULT_REPO"
-    OVERLAY_DIR="$TMP_OVERLAY/omp-unity"
-  fi
-fi
 
 if [[ -z "$SHELL_PATH" ]]; then
   if have zsh; then SHELL_PATH="$(command -v zsh)"; else SHELL_PATH="/bin/zsh"; fi
@@ -170,19 +154,37 @@ fi
 if [[ -z "$VAULT" && -f "$AGENT_DIR/AGENTS.local.md" ]]; then
   VAULT="$(sed -n 's/^- Vault: //p' "$AGENT_DIR/AGENTS.local.md" | head -1)"
 fi
-if [[ -z "$VAULT" ]] && (( ! ASSUME_YES )) && [[ -t 0 ]]; then
-  printf 'Windows vault path (e.g. C:\\Users\\you\\Karikaalan\x27s Vault, blank to skip): '
-  read -r VAULT || VAULT=""
+if (( ! ASSUME_YES )) && [[ -t 0 ]] && (( ! VAULT_SET )); then
+  if [[ -n "$VAULT" ]]; then
+    printf 'Windows vault path [%s] (Enter to keep, "none" to skip): ' "$VAULT"
+  else
+    printf 'Windows vault path (e.g. C:\\Users\\you\\Vault, blank to skip): '
+  fi
+  read -r reply || reply=""
+  if [[ -n "$reply" ]]; then
+    if [[ "$reply" == "none" ]]; then VAULT=""; else VAULT="$reply"; fi
+  fi
 fi
 if [[ -n "$VAULT" ]]; then
   VAULT="$(to_wsl_path "$VAULT")"
   VAULT="${VAULT%/}"
   if [[ ! -d "$VAULT" ]]; then
     warn "Vault directory does not exist in WSL: $VAULT"
-    warn "Create it on Windows or pass the mounted path, e.g. /mnt/c/Users/you/Vault."
+    warn "Create it on Windows or enter the mounted path, e.g. /mnt/c/Users/you/Vault."
     VAULT=""
   fi
 fi
+
+if (( ! ASSUME_YES )) && [[ -t 0 ]] && (( ! AGENT_REPO_SET )); then
+  printf 'Context repo (URL, "none", or "new") [%s]: ' "$AGENT_REPO"
+  read -r reply || reply=""
+  [[ -n "$reply" ]] && AGENT_REPO="$reply"
+fi
+if [[ "$AGENT_REPO" == "new" ]]; then
+  NEW_CONTEXT=1
+  AGENT_REPO="$TEMPLATE_REPO"
+fi
+[[ "$AGENT_REPO" == "none" ]] && AGENT_REPO=""
 
 if ! have omp; then
   info "Installing omp"
@@ -237,6 +239,18 @@ if [[ -n "$AGENT_REPO" ]]; then
   fi
 else
   info "Skipping context repo."
+fi
+
+if [[ ! -f "$OVERLAY_DIR/launchers/cockpit-viewer.mjs" ]]; then
+  if (( DRY )); then
+    info "would fetch the omp-unity runtime from $DEFAULT_REPO"
+  else
+    TMP_OVERLAY="$(mktemp -d "${TMPDIR:-/tmp}/omp-unity-runtime.XXXXXX")"
+    info "Fetching the omp-unity runtime"
+    git clone --depth 1 "$DEFAULT_REPO" "$TMP_OVERLAY/omp-unity" >/dev/null 2>&1 || \
+      die "could not fetch the omp-unity runtime from $DEFAULT_REPO"
+    OVERLAY_DIR="$TMP_OVERLAY/omp-unity"
+  fi
 fi
 
 run mkdir -p "$AGENT_DIR/lib" "$AGENT_DIR/launchers" "$AGENT_DIR/extensions" "$AGENT_DIR/setup"
