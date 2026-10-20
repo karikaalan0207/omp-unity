@@ -277,7 +277,7 @@ export default function cockpitState(pi: ExtensionAPI): void {
 		state.running = false;
 		state.now = "idle";
 		touchUnityItem({
-			status: "active",
+			status: "focus",
 			session: ctx.sessionManager.getSessionFile() || "",
 		});
 		writeMain();

@@ -167,7 +167,11 @@ process.stdin.setRawMode?.(true);
 process.stdin.resume();
 
 process.stdin.on("data", chunk => {
-	const key = chunk.toString();
+	let key = chunk.toString();
+	if (key === "\x1bOA") key = "\x1b[A";
+	if (key === "\x1bOB") key = "\x1b[B";
+	if (key === "\x1bOC") key = "\x1b[C";
+	if (key === "\x1bOD") key = "\x1b[D";
 	if (key === "\t") {
 		if (process.env.TMUX) spawn("tmux", ["select-pane", "-t", ":.+"], { stdio: "ignore" }).unref();
 		return;

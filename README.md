@@ -68,9 +68,8 @@ Board (`unity-board.mjs`):
 | Key | Action |
 |---|---|
 | `j` / `k`, arrows | move |
-| `space` / `s` | cycle status: todo → active → done → blocked |
+| `space` / `s` | toggle focus ↔ stash |
 | `enter` | open the item in a new tab, resuming its session if one exists |
-| `f` | set the focused item |
 | `n` / `p` | new item / new project (type, then Enter) |
 | `[` / `]` | previous / next workspace tab |
 | `q` | quit the board |
@@ -90,7 +89,7 @@ Everything happens in the board pane:
 - `r` rename selected item/project
 - `m` move selected item to another project (`inbox` clears it)
 - `d` delete selected item/project (asks `y/n`); deleting a project moves its items to inbox
-- `space` cycle status, `f` focus, `enter` open
+- `space` toggle focus/stash, `enter` open
 
 From Obsidian you can still create `Unity/items/<id>.md` with the frontmatter
 below; the board picks it up on the next refresh.
@@ -138,7 +137,7 @@ Item frontmatter:
 ---
 id: fix-navigation
 title: Fix navigation
-status: active          # todo | active | blocked | done
+status: focus           # focus | stash
 project: omp-unity
 session: /Users/me/.omp/agent/sessions/....jsonl
 created: 2026-10-20T08:00:00.000Z

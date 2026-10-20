@@ -6,7 +6,7 @@
 #   right top   cockpit viewer
 #   right bottom Unity board (focus, items, projects)
 #
-# Keys in the board: j/k move, space status, enter open, f focus, n/p create,
+# Keys in the board: j/k move, space focus/stash, enter open, n/p create,
 # [ ] switch tabs, q quit. Keys in the viewer: n new tab, f fork, q quit.
 
 set -euo pipefail
@@ -50,7 +50,7 @@ fi
 
 "$NODE_BIN" "$STORE_CLI" init "$VAULT" >/dev/null 2>&1 || true
 if [[ -n "$ITEM" ]]; then
-  "$NODE_BIN" "$STORE_CLI" status "$VAULT" "$ITEM" active >/dev/null 2>&1 || true
+  "$NODE_BIN" "$STORE_CLI" status "$VAULT" "$ITEM" focus >/dev/null 2>&1 || true
 fi
 
 SESSION=""
@@ -100,11 +100,11 @@ open_window() {
   "$TMUX_BIN" new-window -t "$session:" -n "$name" -c "$VAULT" "$OMP_CMD"
   local win
   win="$("$TMUX_BIN" list-windows -t "$session" -F '#{window_name} #{window_index}' | awk -v n="$name" '$1 == n { print $2; exit }')"
-  "$TMUX_BIN" set-option -g mouse on
   "$TMUX_BIN" set-option -t "$session" status-right ' tab pane · C-b d detach · C-b l back '
   if [[ -n "$ITEM" ]]; then
     # Item tabs are the sub-session only; quitting the chat closes the tab.
     "$TMUX_BIN" select-pane -t "$session:$win.0" -T "$ITEM"
+  "$TMUX_BIN" set-hook -t "$session:$win" window-unlinked "run-shell 'rm -rf ${(q)STATE_DIR}'"
   else
     "$TMUX_BIN" split-window -h -l 45% -t "$session:$win" -c "$VAULT" "$VIEWER_CMD"
     "$TMUX_BIN" split-window -v -l 50% -t "$session:$win.1" -c "$VAULT" "$BOARD_CMD"
@@ -114,6 +114,7 @@ open_window() {
     "$TMUX_BIN" select-pane -t "$session:$win.1" -T viewer
     "$TMUX_BIN" select-pane -t "$session:$win.2" -T board
     "$TMUX_BIN" select-pane -t "$session:$win.2"
+    "$TMUX_BIN" set-hook -t "$session:$win" window-unlinked "run-shell 'rm -rf ${(q)STATE_DIR}'"
   fi
   print -r -- "$win"
 }
@@ -145,13 +146,13 @@ if "$TMUX_BIN" has-session -t "$SESSION_NAME" 2>/dev/null; then
 fi
 NAME="${ITEM:-main}"
 "$TMUX_BIN" new-session -d -s "$SESSION_NAME" -n "$NAME" -c "$VAULT" "$OMP_CMD"
-"$TMUX_BIN" set-option -g mouse on
 "$TMUX_BIN" set-option -t "$SESSION_NAME" status-right ' tab pane · C-b d detach · C-b l back '
 if [[ "${UNITY_KEEP:-0}" != "1" ]]; then
   "$TMUX_BIN" set-hook -t "$SESSION_NAME" client-attached "set-option -t '$SESSION_NAME' destroy-unattached on"
 fi
 if [[ -n "$ITEM" ]]; then
   "$TMUX_BIN" select-pane -t "$SESSION_NAME:$NAME.0" -T "$ITEM"
+  "$TMUX_BIN" set-hook -t "$SESSION_NAME:$NAME" window-unlinked "run-shell 'rm -rf ${(q)STATE_DIR}'"
 else
   "$TMUX_BIN" split-window -h -l 45% -t "$SESSION_NAME:$NAME" -c "$VAULT" "$VIEWER_CMD"
   "$TMUX_BIN" split-window -v -l 50% -t "$SESSION_NAME:$NAME.1" -c "$VAULT" "$BOARD_CMD"
@@ -161,5 +162,6 @@ else
   "$TMUX_BIN" select-pane -t "$SESSION_NAME:$NAME.1" -T viewer
   "$TMUX_BIN" select-pane -t "$SESSION_NAME:$NAME.2" -T board
   "$TMUX_BIN" select-pane -t "$SESSION_NAME:$NAME.2"
+  "$TMUX_BIN" set-hook -t "$SESSION_NAME:$NAME" window-unlinked "run-shell 'rm -rf ${(q)STATE_DIR}'"
 fi
 "$TMUX_BIN" attach -t "$SESSION_NAME"

@@ -1,5 +1,5 @@
 // Unity status board: create, rename, move, delete, and open items from the pane.
-// Obsidian-backed. Keys: j/k move, space status, enter open, f focus,
+// Obsidian-backed. Keys: j/k move, space focus/stash, enter open,
 // n item, p project, d delete, r rename, m move, v switch items/projects,
 // [ ] tabs, Tab pane, ? help, q quit.
 
@@ -11,13 +11,11 @@ import {
 	createProject,
 	deleteItem,
 	deleteProject,
-	getFocus,
 	listItems,
 	listProjects,
 	moveItem,
 	renameItem,
 	renameProject,
-	setFocus,
 	updateItem,
 } from "../lib/unity-store.mjs";
 
@@ -44,9 +42,9 @@ const ACCENT = "\x1b[36m";
 const GREEN = "\x1b[32m";
 const RED = "\x1b[31m";
 
-const GLYPH = { todo: "○", active: "▶", blocked: "!", done: "✓" };
-const COLOR = { todo: DIM, active: GREEN, blocked: RED, done: DIM };
-const NEXT = { todo: "active", active: "done", done: "blocked", blocked: "todo" };
+const GLYPH = { focus: "▶", stash: "○" };
+const COLOR = { focus: GREEN, stash: DIM };
+const NEXT = { focus: "stash", stash: "focus" };
 
 let view = "items";
 let selected = 0;
@@ -76,10 +74,10 @@ function line(value, columns, color = "") {
 
 function readState() {
 	try {
-		return { items: listItems(vault), projects: listProjects(vault), focus: getFocus(vault) };
+		return { items: listItems(vault), projects: listProjects(vault) };
 	} catch (error) {
 		message = String(error?.message || error);
-		return { items: [], projects: [], focus: "" };
+		return { items: [], projects: [] };
 	}
 }
 
@@ -110,7 +108,7 @@ function currentProject() {
 function render() {
 	const columns = Math.max(24, process.stdout.columns || 60);
 	const rows = Math.max(10, process.stdout.rows || 20);
-	const { items: list, projects: projectList, focus } = readState();
+	const { items: list, projects: projectList } = readState();
 
 	if (selectedId) {
 		const at = list.findIndex(item => item.id === selectedId);
@@ -120,7 +118,7 @@ function render() {
 	selectedId = list[selected]?.id || "";
 	projectIndex = Math.min(Math.max(0, projectIndex), Math.max(0, projectList.length - 1));
 
-	const focusItem = list.find(item => item.id === focus);
+	const focusItem = list.find(item => item.status === "focus");
 	const listRows = Math.max(3, rows - 11 - Math.min(projectList.length, 3));
 	if (selected < scroll) scroll = selected;
 	if (selected >= scroll + listRows) scroll = selected - listRows + 1;
@@ -133,16 +131,15 @@ function render() {
 
 	const output = [
 		line(`UNITY  ${basename(vault)}${version ? `  v${version}` : ""}`, columns, BOLD + ACCENT),
-		line(`FOCUS  ${focusItem ? `[${focusItem.status}] ${focusItem.title}` : "— (f to set)"}`, columns, focusItem ? "" : DIM),
+		line(`FOCUS  ${focusItem ? focusItem.title : "—"}`, columns, focusItem ? GREEN : DIM),
 		line("─".repeat(columns), columns, DIM),
 		line(`ITEMS  ${list.length}${view === "items" ? "  ←" : ""}`, columns, BOLD),
 	];
 
 	if (help) {
 		output.push(line("  j/k ↑/↓   move", columns, DIM));
-		output.push(line("  space     cycle status", columns, DIM));
+		output.push(line("  space     toggle focus / stash", columns, DIM));
 		output.push(line("  enter     open item (↻ resumes) / new item in project", columns, DIM));
-		output.push(line("  f         set focus", columns, DIM));
 		output.push(line("  v         switch items / projects", columns, DIM));
 		output.push(line("  n / p     new item / new project", columns, DIM));
 		output.push(line("  d         delete (asks y/n)", columns, DIM));
@@ -196,7 +193,7 @@ function render() {
 		}[inputKind] || "input";
 		output.push(line(`> ${label}: ${input}█`, columns, ACCENT));
 	} else {
-		output.push(line(message || "j/k move · space status · enter open · f focus · v projects", columns, DIM));
+		output.push(line(message || "j/k move · space focus/stash · enter open · v projects", columns, DIM));
 		output.push(line("n item · p project · d delete · r rename · m move · u update · ? help · q", columns, DIM));
 	}
 
@@ -334,11 +331,17 @@ function exit() {
 }
 
 function move(delta) {
-	if (view === "items") selected = Math.max(0, selected + delta);
-	else projectIndex = Math.max(0, projectIndex + delta);
+	if (view === "items") {
+		selected = Math.max(0, selected + delta);
+		selectedId = items()[selected]?.id || "";
+	} else {
+		projectIndex = Math.max(0, projectIndex + delta);
+	}
 }
 
 function handleKey(key) {
+	if (key === "up") key = "\x1b[A";
+	if (key === "down") key = "\x1b[B";
 	if (confirm) {
 		if (key === "y" || key === "Y") doDelete();
 		else if (key === "n" || key === "N" || key === "\x1b") confirm = null;
@@ -382,22 +385,13 @@ function handleKey(key) {
 			if (view !== "items") break;
 			const item = currentItem();
 			if (item) {
-				const next = NEXT[item.status] || "todo";
+				const next = NEXT[item.status] || "stash";
 				try {
 					updateItem(vault, item.id, { status: next });
 					message = `${item.id} → ${next}`;
 				} catch (error) {
 					message = String(error?.message || error);
 				}
-			}
-			break;
-		}
-		case "f": {
-			if (view !== "items") break;
-			const item = currentItem();
-			if (item) {
-				setFocus(vault, item.id);
-				message = `focus → ${item.title}`;
 			}
 			break;
 		}
@@ -461,21 +455,29 @@ function handleKey(key) {
 
 process.stdin.setRawMode?.(true);
 process.stdin.resume();
-process.stdin.on("data", chunk => {
-	const text = chunk.toString("utf8");
-	for (let index = 0; index < text.length; ) {
-		const rest = text.slice(index);
-		if (rest.startsWith("\x1b[A")) {
-			handleKey("\x1b[A");
-			index += 3;
-		} else if (rest.startsWith("\x1b[B")) {
-			handleKey("\x1b[B");
-			index += 3;
+let pending = "";
+function drainKeys() {
+	while (pending.length) {
+		if (pending.startsWith("\x1b[A") || pending.startsWith("\x1bOA")) {
+			handleKey("up");
+			pending = pending.slice(3);
+		} else if (pending.startsWith("\x1b[B") || pending.startsWith("\x1bOB")) {
+			handleKey("down");
+			pending = pending.slice(3);
+		} else if (pending.startsWith("\x1b")) {
+			if (pending.length < 3) break;
+			handleKey("\x1b");
+			pending = pending.slice(1);
 		} else {
-			handleKey(text[index]);
-			index += 1;
+			handleKey(pending[0]);
+			pending = pending.slice(1);
 		}
 	}
+}
+
+process.stdin.on("data", chunk => {
+	pending += chunk.toString("utf8");
+	drainKeys();
 	render();
 });
 
