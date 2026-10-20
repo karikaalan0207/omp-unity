@@ -153,6 +153,9 @@ else
 fi
 "$TMUX_BIN" set-option -g mouse on
 "$TMUX_BIN" set-option -t "$SESSION_NAME" status-right ' tab pane · C-b d detach · C-b l back '
+if [[ "${UNITY_KEEP:-0}" != "1" ]]; then
+  "$TMUX_BIN" set-hook -t "$SESSION_NAME" client-attached "set-option -t '$SESSION_NAME' destroy-unattached on"
+fi
 "$TMUX_BIN" set-option -t "$SESSION_NAME:$NAME" pane-border-status top
 "$TMUX_BIN" set-option -t "$SESSION_NAME:$NAME" pane-border-format ' #{pane_title} '
 "$TMUX_BIN" select-pane -t "$SESSION_NAME:$NAME.0" -T omp

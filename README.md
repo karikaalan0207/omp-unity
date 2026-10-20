@@ -46,7 +46,8 @@ not exist, the workspace is created. Do not run it from inside an omp pane
 (`OMP_COCKPIT_DIR` set) — that starts a nested omp instead.
 
 - Quitting the chat (`/quit` or Ctrl-D) closes its whole tab
-- Detach: `Ctrl-b d` (keeps the workspace running)
+- Closing the terminal (detach) closes the workspace by default
+- Keep it across detach: `UNITY_KEEP=1 omp`; then `omp` reattaches
 - Re-enter: `omp`
 - Close the current tab: `x` in the board, then `y`
 - Back to the previous tab: `Ctrl-b l`
