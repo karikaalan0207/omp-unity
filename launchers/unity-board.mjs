@@ -144,6 +144,7 @@ function render() {
 		output.push(line("  n / p     new item / new project", columns, DIM));
 		output.push(line("  d         delete (asks y/n)", columns, DIM));
 		output.push(line("  r / m     rename / move item", columns, DIM));
+		output.push(line("  R         fresh session with context", columns, DIM));
 		output.push(line("  x         close this tab", columns, DIM));
 		output.push(line("  u         update the runtime", columns, DIM));
 		output.push(line("  Ctrl-W    delete word while typing", columns, DIM));
@@ -427,6 +428,14 @@ function handleKey(key) {
 		case "r":
 			requestRename();
 			break;
+		case "R": {
+			const item = currentItem();
+			if (item && launcher) {
+				spawn("/bin/zsh", [launcher, "--item", item.id, "--fresh"], { detached: true, stdio: "ignore" }).unref();
+				message = `fresh session for ${item.title}`;
+			}
+			break;
+		}
 		case "m":
 			requestMove();
 			break;

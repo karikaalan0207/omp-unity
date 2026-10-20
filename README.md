@@ -69,7 +69,8 @@ Board (`unity-board.mjs`):
 |---|---|
 | `j` / `k`, arrows | move |
 | `space` / `s` | toggle focus ↔ stash |
-| `enter` | open the item in a new tab, resuming its session if one exists |
+| `enter` | open the item; resumes its saved session or seeds one |
+| `R` | start a fresh session for the item, with context |
 | `n` / `p` | new item / new project (type, then Enter) |
 | `[` / `]` | previous / next workspace tab |
 | `q` | quit the board |
@@ -110,9 +111,13 @@ never touched. Restart the workspace afterwards.
 
 Opening an item:
 
-- no session: starts omp with an item-aware prompt (title, project, status,
-  file, and note excerpt);
+- no session: starts omp with an item context pack (title, project, status,
+  file, item notes, sibling items);
 - session: resumes it with `omp --resume <file>`.
+
+`R` in the board starts a **fresh** session instead. It feeds the same context
+pack plus a brief of the previous session (last user/assistant messages), so
+you can iterate without inheriting the old thread.
 
 The live session path is stored in the item's `session:` field by the
 extension on `session_start`. The board marks resumable items with `↻`. If the

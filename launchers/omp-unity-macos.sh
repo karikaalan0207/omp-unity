@@ -31,12 +31,14 @@ OMP_BIN="$(whence -p omp || true)"
 
 ITEM=""
 FORK=""
+FRESH=0
 VAULT=""
 while (( $# )); do
   case "$1" in
     --vault) VAULT="${2:-}"; shift 2 ;;
     --item) ITEM="${2:-}"; shift 2 ;;
     --fork) FORK="${2:-}"; shift 2 ;;
+    --fresh) FRESH=1; shift ;;
     *) shift ;;
   esac
 done
@@ -63,8 +65,17 @@ if [[ -n "$SESSION" && ! -f "$SESSION" ]]; then
   SESSION=""
 fi
 
+HAD_SESSION="$SESSION"
 PROMPT=""
-if [[ -n "$ITEM" && -z "$SESSION" ]]; then
+if (( FRESH )) && [[ -n "$ITEM" ]]; then
+  if [[ -n "$HAD_SESSION" ]]; then
+    PROMPT="$("$NODE_BIN" "$STORE_CLI" prompt "$VAULT" "$ITEM" --with-session 2>/dev/null || true)"
+  else
+    PROMPT="$("$NODE_BIN" "$STORE_CLI" prompt "$VAULT" "$ITEM" 2>/dev/null || true)"
+  fi
+  "$NODE_BIN" "$STORE_CLI" session-clear "$VAULT" "$ITEM" >/dev/null 2>&1 || true
+  SESSION=""
+elif [[ -n "$ITEM" && -z "$SESSION" ]]; then
   PROMPT="$("$NODE_BIN" "$STORE_CLI" prompt "$VAULT" "$ITEM" 2>/dev/null || true)"
 fi
 
