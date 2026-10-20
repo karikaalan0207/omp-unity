@@ -145,13 +145,6 @@ if [[ ! -f "$HOME/.omp/env" ]]; then
   info "Created $HOME/.omp/env (mode 600)"
 fi
 
-# ---------------------------------------------------------------- unity cli
-mkdir -p "$HOME/.omp/bin"
-if [[ -f "$HERE/../bin/unity" ]]; then
-  ln -sf "$HERE/../bin/unity" "$HOME/.omp/bin/unity"
-  info "Linked unity CLI at ~/.omp/bin/unity"
-fi
-
 # ---------------------------------------------------------------- zsh
 if have omp; then
   if ! grep -qF 'omp shell completion' "$ZSHENV" 2>/dev/null; then
@@ -160,11 +153,6 @@ if have omp; then
   fi
 else
   warn "omp is not on PATH; skipping completions."
-fi
-
-if ! grep -qF '.omp/bin' "$ZSHENV" 2>/dev/null; then
-  printf '\n# omp bin\nexport PATH="$HOME/.omp/bin:$PATH"\n' >> "$ZSHENV"
-  info "Added ~/.omp/bin to PATH"
 fi
 
 if ! grep -qF '.omp/env' "$ZSHENV" 2>/dev/null; then

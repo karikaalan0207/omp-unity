@@ -1,15 +1,21 @@
-// Unity status board: focus, items, projects. Obsidian-backed.
-// Keys: j/k or arrows move, space/s cycle status, enter opens the item,
-// f sets focus, n/p create item/project, [ ] switch workspace tabs, q quits.
+// Unity status board: create, rename, move, delete, and open items from the pane.
+// Obsidian-backed. Keys: j/k move, space status, enter open, f focus,
+// n item, p project, d delete, r rename, m move, v switch items/projects,
+// [ ] tabs, Tab pane, ? help, q quit.
 
 import { spawn, spawnSync } from "node:child_process";
 import { basename } from "node:path";
 import {
 	createItem,
 	createProject,
+	deleteItem,
+	deleteProject,
 	getFocus,
 	listItems,
 	listProjects,
+	moveItem,
+	renameItem,
+	renameProject,
 	setFocus,
 	updateItem,
 } from "../lib/unity-store.mjs";
@@ -32,13 +38,20 @@ const GLYPH = { todo: "○", active: "▶", blocked: "!", done: "✓" };
 const COLOR = { todo: DIM, active: GREEN, blocked: RED, done: DIM };
 const NEXT = { todo: "active", active: "done", done: "blocked", blocked: "todo" };
 
+let view = "items";
 let selected = 0;
 let selectedId = "";
+let projectIndex = 0;
+let projectStart = 0;
 let scroll = 0;
 let mode = "list";
 let input = "";
-let message = "";
+let inputKind = "";
+let inputTarget = "";
+let pendingProject = "";
+let confirm = null;
 let help = false;
+let message = "";
 
 function fit(value, columns) {
 	const plain = value.replace(/\x1b\[[0-9;]*m/g, "");
@@ -60,45 +73,79 @@ function readState() {
 	}
 }
 
+function items() {
+	try {
+		return listItems(vault);
+	} catch {
+		return [];
+	}
+}
+
+function projects() {
+	try {
+		return listProjects(vault);
+	} catch {
+		return [];
+	}
+}
+
+function currentItem() {
+	return items()[selected];
+}
+
+function currentProject() {
+	return projects()[projectIndex];
+}
+
 function render() {
 	const columns = Math.max(24, process.stdout.columns || 60);
 	const rows = Math.max(10, process.stdout.rows || 20);
-	const { items, projects, focus } = readState();
+	const { items: list, projects: projectList, focus } = readState();
+
 	if (selectedId) {
-		const at = items.findIndex(item => item.id === selectedId);
+		const at = list.findIndex(item => item.id === selectedId);
 		if (at >= 0) selected = at;
 	}
-	selected = Math.min(Math.max(0, selected), Math.max(0, items.length - 1));
-	selectedId = items[selected]?.id || "";
-	const focusItem = items.find(item => item.id === focus);
+	selected = Math.min(Math.max(0, selected), Math.max(0, list.length - 1));
+	selectedId = list[selected]?.id || "";
+	projectIndex = Math.min(Math.max(0, projectIndex), Math.max(0, projectList.length - 1));
 
-	const listRows = Math.max(3, rows - 10 - Math.min(projects.length, 3));
+	const focusItem = list.find(item => item.id === focus);
+	const listRows = Math.max(3, rows - 11 - Math.min(projectList.length, 3));
 	if (selected < scroll) scroll = selected;
 	if (selected >= scroll + listRows) scroll = selected - listRows + 1;
-	const visible = items.slice(scroll, scroll + listRows);
+	const visible = list.slice(scroll, scroll + listRows);
+
+	const projectRows = 3;
+	if (projectIndex < projectStart) projectStart = projectIndex;
+	if (projectIndex >= projectStart + projectRows) projectStart = projectIndex - projectRows + 1;
+	const visibleProjects = projectList.slice(projectStart, projectStart + projectRows);
 
 	const output = [
 		line(`UNITY  ${basename(vault)}`, columns, BOLD + ACCENT),
 		line(`FOCUS  ${focusItem ? `[${focusItem.status}] ${focusItem.title}` : "— (f to set)"}`, columns, focusItem ? "" : DIM),
 		line("─".repeat(columns), columns, DIM),
-		line(`ITEMS  ${items.length}`, columns, BOLD),
+		line(`ITEMS  ${list.length}${view === "items" ? "  ←" : ""}`, columns, BOLD),
 	];
+
 	if (help) {
 		output.push(line("  j/k ↑/↓   move", columns, DIM));
 		output.push(line("  space     cycle status", columns, DIM));
-		output.push(line("  enter     open item in a new tab", columns, DIM));
+		output.push(line("  enter     open item / new item in project", columns, DIM));
 		output.push(line("  f         set focus", columns, DIM));
-		output.push(line("  n / p     new item / project", columns, DIM));
+		output.push(line("  v         switch items / projects", columns, DIM));
+		output.push(line("  n / p     new item / new project", columns, DIM));
+		output.push(line("  d         delete (asks y/n)", columns, DIM));
+		output.push(line("  r / m     rename / move item", columns, DIM));
 		output.push(line("  [ ]       previous / next tab", columns, DIM));
-		output.push(line("  Tab       next pane (viewer/board)", columns, DIM));
-		output.push(line("  Ctrl-b ←  move panes", columns, DIM));
+		output.push(line("  Tab       next pane", columns, DIM));
 		output.push(line("  ?         close help", columns, DIM));
 	} else if (visible.length === 0) {
 		output.push(line("  no items yet", columns, DIM));
 	} else {
 		for (let index = 0; index < visible.length; index += 1) {
 			const item = visible[index];
-			const cursor = scroll + index === selected ? "▶" : " ";
+			const cursor = view === "items" && scroll + index === selected ? "▶" : " ";
 			const mark = GLYPH[item.status] || "○";
 			const suffix = item.project ? `  ${item.project}` : "";
 			output.push(line(`${cursor} ${mark} ${item.title}${suffix}`, columns, COLOR[item.status] || ""));
@@ -106,46 +153,117 @@ function render() {
 	}
 
 	output.push(line("─".repeat(columns), columns, DIM));
-	output.push(line(`PROJECTS  ${projects.length}`, columns, BOLD));
-	for (const project of projects.slice(0, 3)) {
-		output.push(line(`  ${project.title}  ${project.done}/${project.total}`, columns, DIM));
+	output.push(line(`PROJECTS  ${projectList.length}${view === "projects" ? "  ←" : ""}`, columns, BOLD));
+	if (visibleProjects.length === 0) {
+		output.push(line("  none", columns, DIM));
+	} else {
+		for (let index = 0; index < visibleProjects.length; index += 1) {
+			const project = visibleProjects[index];
+			const cursor = view === "projects" && projectStart + index === projectIndex ? "▶" : " ";
+			output.push(line(`${cursor} ${project.title}  ${project.done}/${project.total}`, columns, view === "projects" && projectStart + index === projectIndex ? ACCENT : DIM));
+		}
 	}
-	if (projects.length === 0) output.push(line("  none", columns, DIM));
 
 	output.push(line("─".repeat(columns), columns, DIM));
-	if (mode === "input") {
-		output.push(line(`> ${mode === "item" ? "new item" : "new project"}: ${input}`, columns, ACCENT));
+	if (confirm) {
+		output.push(line(`delete ${confirm.label}? y/n`, columns, RED));
+	} else if (mode === "input") {
+		const label = {
+			item: "new item",
+			project: "new project",
+			"rename-item": "rename item",
+			"rename-project": "rename project",
+			"move-item": "move item to project",
+		}[inputKind] || "input";
+		output.push(line(`> ${label}: ${input}`, columns, ACCENT));
 	} else {
-		output.push(line(message || "j/k move · space status · enter open · f focus", columns, DIM));
-		output.push(line("n item · p project · [ ] tabs · Tab pane · ? help · q", columns, DIM));
+		output.push(line(message || "j/k move · space status · enter open · f focus · v projects", columns, DIM));
+		output.push(line("n item · p project · d delete · r rename · m move · ? help · q", columns, DIM));
 	}
 
 	while (output.length < rows) output.push("".padEnd(columns));
 	process.stdout.write(`\x1b[H${output.slice(0, rows).join("\n")}\x1b[0m`);
 }
 
-function selectedItem(items = listItems(vault)) {
-	return items[selected];
+function startInput(kind, initial = "", target = "") {
+	mode = "input";
+	inputKind = kind;
+	inputTarget = target;
+	input = initial;
 }
 
-function submit(kind) {
+function submit() {
 	const value = input.trim();
+	const kind = inputKind;
 	input = "";
+	inputKind = "";
 	mode = "list";
 	if (!value) return;
 	try {
 		if (kind === "item") {
-			const project = selectedItem()?.project || "";
+			const project = pendingProject || currentItem()?.project || "inbox";
 			const item = createItem(vault, { title: value, project });
 			selectedId = item.id;
+			view = "items";
 			message = `created ${item.id}`;
-		} else {
+		} else if (kind === "project") {
 			const project = createProject(vault, { title: value });
+			projectIndex = projects().findIndex(entry => entry.id === project.id);
+			view = "projects";
 			message = `created ${project.id}`;
+		} else if (kind === "rename-item") {
+			renameItem(vault, inputTarget, value);
+			message = `renamed ${inputTarget}`;
+		} else if (kind === "rename-project") {
+			renameProject(vault, inputTarget, value);
+			message = `renamed ${inputTarget}`;
+		} else if (kind === "move-item") {
+			moveItem(vault, inputTarget, value === "inbox" ? "" : value);
+			message = `moved ${inputTarget} → ${value}`;
 		}
 	} catch (error) {
 		message = String(error?.message || error);
 	}
+	pendingProject = "";
+	inputTarget = "";
+}
+
+function doDelete() {
+	if (!confirm) return;
+	try {
+		if (confirm.kind === "item") deleteItem(vault, confirm.id);
+		else deleteProject(vault, confirm.id);
+		message = `deleted ${confirm.id}`;
+	} catch (error) {
+		message = String(error?.message || error);
+	}
+	confirm = null;
+}
+
+function requestDelete() {
+	if (view === "items") {
+		const item = currentItem();
+		if (item) confirm = { kind: "item", id: item.id, label: item.title };
+	} else {
+		const project = currentProject();
+		if (project) confirm = { kind: "project", id: project.id, label: project.title };
+	}
+}
+
+function requestRename() {
+	if (view === "items") {
+		const item = currentItem();
+		if (item) startInput("rename-item", item.title, item.id);
+	} else {
+		const project = currentProject();
+		if (project) startInput("rename-project", project.title, project.id);
+	}
+}
+
+function requestMove() {
+	if (view !== "items") return;
+	const item = currentItem();
+	if (item) startInput("move-item", item.project || "inbox", item.id);
 }
 
 function switchWindow(offset) {
@@ -153,32 +271,39 @@ function switchWindow(offset) {
 	spawnSync("tmux", ["select-window", "-t", offset > 0 ? ":+" : ":-"], { stdio: "ignore" });
 }
 
+function cyclePane() {
+	if (!process.env.TMUX) return;
+	spawnSync("tmux", ["select-pane", "-t", ":.+"], { stdio: "ignore" });
+}
+
 function exit() {
 	process.stdout.write("\x1b[?25h\x1b[?1049l");
 	process.exit(0);
 }
 
+function move(delta) {
+	if (view === "items") selected = Math.max(0, selected + delta);
+	else projectIndex = Math.max(0, projectIndex + delta);
+}
+
 function handleKey(key) {
+	if (confirm) {
+		if (key === "y" || key === "Y") doDelete();
+		else if (key === "n" || key === "N" || key === "\x1b") confirm = null;
+		return;
+	}
 	if (help) {
 		if (key === "?" || key === "\x1b") help = false;
 		return;
 	}
-	if (mode !== "list") {
-		const kind = mode;
-		if (key === "\r" || key === "\n") {
-			submit(kind);
-			return;
-		}
-		if (key === "\x7f") {
-			input = input.slice(0, -1);
-			return;
-		}
-		if (key === "\x1b") {
+	if (mode === "input") {
+		if (key === "\r" || key === "\n") submit();
+		else if (key === "\x7f") input = input.slice(0, -1);
+		else if (key === "\x1b") {
 			mode = "list";
 			input = "";
-			return;
-		}
-		if (key.length === 1 && key >= " ") input += key;
+			inputKind = "";
+		} else if (key.length === 1 && key >= " ") input += key;
 		return;
 	}
 
@@ -189,15 +314,19 @@ function handleKey(key) {
 			break;
 		case "\x1b[A":
 		case "k":
-			selected = Math.max(0, selected - 1);
+			move(-1);
 			break;
 		case "\x1b[B":
 		case "j":
-			selected += 1;
+			move(1);
+			break;
+		case "v":
+			view = view === "items" ? "projects" : "items";
 			break;
 		case " ":
 		case "s": {
-			const item = selectedItem();
+			if (view !== "items") break;
+			const item = currentItem();
 			if (item) {
 				const next = NEXT[item.status] || "todo";
 				try {
@@ -210,39 +339,54 @@ function handleKey(key) {
 			break;
 		}
 		case "f": {
-			const item = selectedItem();
+			if (view !== "items") break;
+			const item = currentItem();
 			if (item) {
-				try {
-					setFocus(vault, item.id);
-					message = `focus → ${item.title}`;
-				} catch (error) {
-					message = String(error?.message || error);
-				}
+				setFocus(vault, item.id);
+				message = `focus → ${item.title}`;
 			}
 			break;
 		}
 		case "\r":
 		case "\n": {
-			const item = selectedItem();
+			if (view === "projects") {
+				const project = currentProject();
+				if (project) {
+					pendingProject = project.id;
+					startInput("item");
+				}
+				break;
+			}
+			const item = currentItem();
 			if (item && launcher) {
 				spawn("/bin/zsh", [launcher, "--item", item.id], { detached: true, stdio: "ignore" }).unref();
 				message = `opened ${item.title}`;
 			}
 			break;
 		}
+		case "n": {
+			const project = view === "projects" ? currentProject()?.id : currentItem()?.project;
+			pendingProject = project || "inbox";
+			startInput("item");
+			break;
+		}
+		case "p":
+			startInput("project");
+			break;
+		case "d":
+			requestDelete();
+			break;
+		case "r":
+			requestRename();
+			break;
+		case "m":
+			requestMove();
+			break;
 		case "?":
 			help = true;
 			break;
 		case "\t":
-			if (process.env.TMUX) spawnSync("tmux", ["select-pane", "-t", ":.+"], { stdio: "ignore" });
-			break;
-		case "n":
-			mode = "item";
-			input = "";
-			break;
-		case "p":
-			mode = "project";
-			input = "";
+			cyclePane();
 			break;
 		case "[":
 			switchWindow(-1);

@@ -68,29 +68,20 @@ Board (`unity-board.mjs`):
 Viewer: `n` new tab, `f` fork the session, `q` quit.
 tmux: `prefix + l` returns to the previous tab, `prefix + n/p` cycles tabs.
 
-## Adding items and projects
+## Adding, editing, deleting
 
-From the board: `n` creates an item, `p` creates a project. A new item
-inherits the currently selected item's project; with nothing selected it goes
-to the inbox.
+Everything happens in the board pane:
 
-From any terminal (the bootstrap links `unity` into `~/.omp/bin`):
+- `n` new item (inherits the selected item's project; otherwise inbox)
+- `p` new project
+- `v` switch between items and projects; `enter` on a project starts a new item there
+- `r` rename selected item/project
+- `m` move selected item to another project (`inbox` clears it)
+- `d` delete selected item/project (asks `y/n`); deleting a project moves its items to inbox
+- `space` cycle status, `f` focus, `enter` open
 
-```bash
-unity project "omp-unity"
-unity add "Fix navigation" omp-unity
-unity add "Inbox thought"
-unity items
-unity projects
-unity focus fix-navigation
-unity set fix-navigation active
-```
-
-`UNITY_VAULT=/path/to/vault` overrides the vault recorded in
-`AGENTS.local.md`. `unity open <id>` opens the item in a workspace tab.
-
-From Obsidian, create `Unity/items/<id>.md` with the frontmatter below; the
-board picks it up on the next refresh.
+From Obsidian you can still create `Unity/items/<id>.md` with the frontmatter
+below; the board picks it up on the next refresh.
 
 ## Obsidian schema
 
