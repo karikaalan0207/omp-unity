@@ -28,7 +28,7 @@ bootstrap.
 
 ## Layout
 
-One tmux window per workspace tab:
+The main tab is the workspace:
 
 ```text
 ┌───────────────────────┬───────────────────────┐
@@ -38,6 +38,10 @@ One tmux window per workspace tab:
 │                       │  Unity board          │
 └───────────────────────┴───────────────────────┘
 ```
+
+Opening an item creates a **chat-only tab** for that item. The board stays in
+the main tab; quitting the item chat closes its tab. `Ctrl-b l` returns to the
+main tab; `[` `]` switch tabs from the board.
 
 ## Getting in and out
 

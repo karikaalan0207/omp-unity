@@ -100,20 +100,21 @@ open_window() {
   "$TMUX_BIN" new-window -t "$session:" -n "$name" -c "$VAULT" "$OMP_CMD"
   local win
   win="$("$TMUX_BIN" list-windows -t "$session" -F '#{window_name} #{window_index}' | awk -v n="$name" '$1 == n { print $2; exit }')"
-  "$TMUX_BIN" split-window -h -l 45% -t "$session:$win" -c "$VAULT" "$VIEWER_CMD"
-  "$TMUX_BIN" split-window -v -l 50% -t "$session:$win.1" -c "$VAULT" "$BOARD_CMD"
-  if [[ -n "$ITEM" ]]; then
-    "$TMUX_BIN" select-pane -t "$session:$win.0"
-  else
-    "$TMUX_BIN" select-pane -t "$session:$win.2"
-  fi
   "$TMUX_BIN" set-option -g mouse on
   "$TMUX_BIN" set-option -t "$session" status-right ' tab pane · C-b d detach · C-b l back '
-  "$TMUX_BIN" set-option -t "$session:$win" pane-border-status top
-  "$TMUX_BIN" set-option -t "$session:$win" pane-border-format ' #{pane_title} '
-  "$TMUX_BIN" select-pane -t "$session:$win.0" -T omp
-  "$TMUX_BIN" select-pane -t "$session:$win.1" -T viewer
-  "$TMUX_BIN" select-pane -t "$session:$win.2" -T board
+  if [[ -n "$ITEM" ]]; then
+    # Item tabs are the sub-session only; quitting the chat closes the tab.
+    "$TMUX_BIN" select-pane -t "$session:$win.0" -T "$ITEM"
+  else
+    "$TMUX_BIN" split-window -h -l 45% -t "$session:$win" -c "$VAULT" "$VIEWER_CMD"
+    "$TMUX_BIN" split-window -v -l 50% -t "$session:$win.1" -c "$VAULT" "$BOARD_CMD"
+    "$TMUX_BIN" set-option -t "$session:$win" pane-border-status top
+    "$TMUX_BIN" set-option -t "$session:$win" pane-border-format ' #{pane_title} '
+    "$TMUX_BIN" select-pane -t "$session:$win.0" -T omp
+    "$TMUX_BIN" select-pane -t "$session:$win.1" -T viewer
+    "$TMUX_BIN" select-pane -t "$session:$win.2" -T board
+    "$TMUX_BIN" select-pane -t "$session:$win.2"
+  fi
   print -r -- "$win"
 }
 
@@ -144,21 +145,21 @@ if "$TMUX_BIN" has-session -t "$SESSION_NAME" 2>/dev/null; then
 fi
 NAME="${ITEM:-main}"
 "$TMUX_BIN" new-session -d -s "$SESSION_NAME" -n "$NAME" -c "$VAULT" "$OMP_CMD"
-"$TMUX_BIN" split-window -h -l 45% -t "$SESSION_NAME:$NAME" -c "$VAULT" "$VIEWER_CMD"
-"$TMUX_BIN" split-window -v -l 50% -t "$SESSION_NAME:$NAME.1" -c "$VAULT" "$BOARD_CMD"
-if [[ -n "$ITEM" ]]; then
-  "$TMUX_BIN" select-pane -t "$SESSION_NAME:$NAME.0"
-else
-  "$TMUX_BIN" select-pane -t "$SESSION_NAME:$NAME.2"
-fi
 "$TMUX_BIN" set-option -g mouse on
 "$TMUX_BIN" set-option -t "$SESSION_NAME" status-right ' tab pane · C-b d detach · C-b l back '
 if [[ "${UNITY_KEEP:-0}" != "1" ]]; then
   "$TMUX_BIN" set-hook -t "$SESSION_NAME" client-attached "set-option -t '$SESSION_NAME' destroy-unattached on"
 fi
-"$TMUX_BIN" set-option -t "$SESSION_NAME:$NAME" pane-border-status top
-"$TMUX_BIN" set-option -t "$SESSION_NAME:$NAME" pane-border-format ' #{pane_title} '
-"$TMUX_BIN" select-pane -t "$SESSION_NAME:$NAME.0" -T omp
-"$TMUX_BIN" select-pane -t "$SESSION_NAME:$NAME.1" -T viewer
-"$TMUX_BIN" select-pane -t "$SESSION_NAME:$NAME.2" -T board
+if [[ -n "$ITEM" ]]; then
+  "$TMUX_BIN" select-pane -t "$SESSION_NAME:$NAME.0" -T "$ITEM"
+else
+  "$TMUX_BIN" split-window -h -l 45% -t "$SESSION_NAME:$NAME" -c "$VAULT" "$VIEWER_CMD"
+  "$TMUX_BIN" split-window -v -l 50% -t "$SESSION_NAME:$NAME.1" -c "$VAULT" "$BOARD_CMD"
+  "$TMUX_BIN" set-option -t "$SESSION_NAME:$NAME" pane-border-status top
+  "$TMUX_BIN" set-option -t "$SESSION_NAME:$NAME" pane-border-format ' #{pane_title} '
+  "$TMUX_BIN" select-pane -t "$SESSION_NAME:$NAME.0" -T omp
+  "$TMUX_BIN" select-pane -t "$SESSION_NAME:$NAME.1" -T viewer
+  "$TMUX_BIN" select-pane -t "$SESSION_NAME:$NAME.2" -T board
+  "$TMUX_BIN" select-pane -t "$SESSION_NAME:$NAME.2"
+fi
 "$TMUX_BIN" attach -t "$SESSION_NAME"
