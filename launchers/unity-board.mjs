@@ -131,12 +131,14 @@ function render() {
 	if (help) {
 		output.push(line("  j/k ↑/↓   move", columns, DIM));
 		output.push(line("  space     cycle status", columns, DIM));
-		output.push(line("  enter     open item / new item in project", columns, DIM));
+		output.push(line("  enter     open item (↻ resumes) / new item in project", columns, DIM));
 		output.push(line("  f         set focus", columns, DIM));
 		output.push(line("  v         switch items / projects", columns, DIM));
 		output.push(line("  n / p     new item / new project", columns, DIM));
 		output.push(line("  d         delete (asks y/n)", columns, DIM));
 		output.push(line("  r / m     rename / move item", columns, DIM));
+		output.push(line("  x         close this tab", columns, DIM));
+		output.push(line("  Ctrl-W    delete word while typing", columns, DIM));
 		output.push(line("  [ ]       previous / next tab", columns, DIM));
 		output.push(line("  Tab       next pane", columns, DIM));
 		output.push(line("  ?         close help", columns, DIM));
@@ -145,10 +147,13 @@ function render() {
 	} else {
 		for (let index = 0; index < visible.length; index += 1) {
 			const item = visible[index];
-			const cursor = view === "items" && scroll + index === selected ? "▶" : " ";
+			const isSelected = view === "items" && scroll + index === selected;
+			const cursor = isSelected ? "▶" : " ";
 			const mark = GLYPH[item.status] || "○";
+			const resume = item.session ? "↻ " : "";
 			const suffix = item.project ? `  ${item.project}` : "";
-			output.push(line(`${cursor} ${mark} ${item.title}${suffix}`, columns, COLOR[item.status] || ""));
+			const color = (isSelected ? "\x1b[7m" : "") + (COLOR[item.status] || "");
+			output.push(line(`${cursor} ${mark} ${resume}${item.title}${suffix}`, columns, color));
 		}
 	}
 
@@ -159,14 +164,17 @@ function render() {
 	} else {
 		for (let index = 0; index < visibleProjects.length; index += 1) {
 			const project = visibleProjects[index];
-			const cursor = view === "projects" && projectStart + index === projectIndex ? "▶" : " ";
-			output.push(line(`${cursor} ${project.title}  ${project.done}/${project.total}`, columns, view === "projects" && projectStart + index === projectIndex ? ACCENT : DIM));
+			const isSelected = view === "projects" && projectStart + index === projectIndex;
+			const cursor = isSelected ? "▶" : " ";
+			const color = isSelected ? "\x1b[7m" + ACCENT : DIM;
+			output.push(line(`${cursor} ${project.title}  ${project.done}/${project.total}`, columns, color));
 		}
 	}
 
 	output.push(line("─".repeat(columns), columns, DIM));
 	if (confirm) {
-		output.push(line(`delete ${confirm.label}? y/n`, columns, RED));
+		const question = confirm.kind === "tab" ? `close tab ${confirm.label}? y/n` : `delete ${confirm.label}? y/n`;
+		output.push(line(question, columns, RED));
 	} else if (mode === "input") {
 		const label = {
 			item: "new item",
@@ -175,7 +183,7 @@ function render() {
 			"rename-project": "rename project",
 			"move-item": "move item to project",
 		}[inputKind] || "input";
-		output.push(line(`> ${label}: ${input}`, columns, ACCENT));
+		output.push(line(`> ${label}: ${input}█`, columns, ACCENT));
 	} else {
 		output.push(line(message || "j/k move · space status · enter open · f focus · v projects", columns, DIM));
 		output.push(line("n item · p project · d delete · r rename · m move · ? help · q", columns, DIM));
@@ -230,6 +238,10 @@ function submit() {
 
 function doDelete() {
 	if (!confirm) return;
+	if (confirm.kind === "tab") {
+		spawnSync("tmux", ["kill-window", "-t", process.env.TMUX_PANE || ":."], { stdio: "ignore" });
+		return;
+	}
 	try {
 		if (confirm.kind === "item") deleteItem(vault, confirm.id);
 		else deleteProject(vault, confirm.id);
@@ -248,6 +260,15 @@ function requestDelete() {
 		const project = currentProject();
 		if (project) confirm = { kind: "project", id: project.id, label: project.title };
 	}
+}
+
+function requestCloseTab() {
+	if (!process.env.TMUX) {
+		message = "close tab needs a tmux workspace";
+		return;
+	}
+	const name = spawnSync("tmux", ["display-message", "-p", "-t", process.env.TMUX_PANE || "", "#{window_name}"], { encoding: "utf8" }).stdout.trim();
+	confirm = { kind: "tab", id: "", label: name || "this tab" };
 }
 
 function requestRename() {
@@ -298,7 +319,9 @@ function handleKey(key) {
 	}
 	if (mode === "input") {
 		if (key === "\r" || key === "\n") submit();
-		else if (key === "\x7f") input = input.slice(0, -1);
+		else if (key === "\x7f" || key === "\x08") input = input.slice(0, -1);
+		else if (key === "\x15") input = "";
+		else if (key === "\x17") input = input.replace(/\s*\S+\s*$/, "");
 		else if (key === "\x1b") {
 			mode = "list";
 			input = "";
@@ -382,6 +405,9 @@ function handleKey(key) {
 		case "m":
 			requestMove();
 			break;
+		case "x":
+			requestCloseTab();
+			break;
 		case "?":
 			help = true;
 			break;
@@ -416,6 +442,7 @@ process.stdin.on("data", chunk => {
 			index += 1;
 		}
 	}
+	render();
 });
 
 process.stdout.on("resize", render);

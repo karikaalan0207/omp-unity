@@ -58,12 +58,25 @@ if [[ -n "$ITEM" ]]; then
   SESSION="$("$NODE_BIN" "$STORE_CLI" session "$VAULT" "$ITEM" 2>/dev/null || true)"
 fi
 [[ -z "$SESSION" && -n "$FORK" ]] && SESSION="$FORK"
+if [[ -n "$SESSION" && ! -f "$SESSION" ]]; then
+  "$NODE_BIN" "$STORE_CLI" session-clear "$VAULT" "$ITEM" >/dev/null 2>&1 || true
+  SESSION=""
+fi
+
+PROMPT=""
+if [[ -n "$ITEM" && -z "$SESSION" ]]; then
+  PROMPT="$("$NODE_BIN" "$STORE_CLI" prompt "$VAULT" "$ITEM" 2>/dev/null || true)"
+fi
 
 STATE_DIR="${TMPDIR:-/tmp}/omp-unity-$$"
 mkdir -p "$STATE_DIR"
 
 OMP_CMD="PATH=${(q)PATH} UNITY_VAULT=${(q)VAULT} UNITY_ITEM=${(q)ITEM} OMP_COCKPIT_DIR=${(q)STATE_DIR} ${(q)OMP_BIN}"
-[[ -n "$SESSION" ]] && OMP_CMD="$OMP_CMD --resume ${(q)SESSION}"
+if [[ -n "$SESSION" ]]; then
+  OMP_CMD="$OMP_CMD --resume ${(q)SESSION}"
+elif [[ -n "$PROMPT" ]]; then
+  OMP_CMD="$OMP_CMD ${(q)PROMPT}"
+fi
 VIEWER_CMD="PATH=${(q)PATH} ${(q)NODE_BIN} ${(q)VIEWER} ${(q)STATE_DIR} ${(q)SELF}"
 BOARD_CMD="PATH=${(q)PATH} UNITY_VAULT=${(q)VAULT} ${(q)NODE_BIN} ${(q)BOARD} ${(q)VAULT} ${(q)SELF}"
 
@@ -81,14 +94,18 @@ window_name() {
 
 open_window() {
   local session="$1" name="$2"
-  "$TMUX_BIN" new-window -t "$session" -n "$name" -c "$VAULT" "$OMP_CMD"
+  "$TMUX_BIN" new-window -t "$session:" -n "$name" -c "$VAULT" "$OMP_CMD"
   local win
   win="$("$TMUX_BIN" list-windows -t "$session" -F '#{window_name} #{window_index}' | awk -v n="$name" '$1 == n { print $2; exit }')"
   "$TMUX_BIN" split-window -h -l 45% -t "$session:$win" -c "$VAULT" "$VIEWER_CMD"
   "$TMUX_BIN" split-window -v -l 50% -t "$session:$win.1" -c "$VAULT" "$BOARD_CMD"
-  "$TMUX_BIN" select-pane -t "$session:$win.0"
+  if [[ -n "$ITEM" ]]; then
+    "$TMUX_BIN" select-pane -t "$session:$win.0"
+  else
+    "$TMUX_BIN" select-pane -t "$session:$win.2"
+  fi
   "$TMUX_BIN" set-option -g mouse on
-  "$TMUX_BIN" set-option -t "$session" status-right ' tab pane · C-b arrows · C-b l back '
+  "$TMUX_BIN" set-option -t "$session" status-right ' tab pane · C-b d detach · C-b l back '
   "$TMUX_BIN" set-option -t "$session:$win" pane-border-status top
   "$TMUX_BIN" set-option -t "$session:$win" pane-border-format ' #{pane_title} '
   "$TMUX_BIN" select-pane -t "$session:$win.0" -T omp
@@ -126,9 +143,13 @@ NAME="${ITEM:-main}"
 "$TMUX_BIN" new-session -d -s "$SESSION_NAME" -n "$NAME" -c "$VAULT" "$OMP_CMD"
 "$TMUX_BIN" split-window -h -l 45% -t "$SESSION_NAME:$NAME" -c "$VAULT" "$VIEWER_CMD"
 "$TMUX_BIN" split-window -v -l 50% -t "$SESSION_NAME:$NAME.1" -c "$VAULT" "$BOARD_CMD"
-"$TMUX_BIN" select-pane -t "$SESSION_NAME:$NAME.0"
+if [[ -n "$ITEM" ]]; then
+  "$TMUX_BIN" select-pane -t "$SESSION_NAME:$NAME.0"
+else
+  "$TMUX_BIN" select-pane -t "$SESSION_NAME:$NAME.2"
+fi
 "$TMUX_BIN" set-option -g mouse on
-"$TMUX_BIN" set-option -t "$SESSION_NAME" status-right ' tab pane · C-b arrows · C-b l back '
+"$TMUX_BIN" set-option -t "$SESSION_NAME" status-right ' tab pane · C-b d detach · C-b l back '
 "$TMUX_BIN" set-option -t "$SESSION_NAME:$NAME" pane-border-status top
 "$TMUX_BIN" set-option -t "$SESSION_NAME:$NAME" pane-border-format ' #{pane_title} '
 "$TMUX_BIN" select-pane -t "$SESSION_NAME:$NAME.0" -T omp

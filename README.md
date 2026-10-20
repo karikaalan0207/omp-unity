@@ -47,7 +47,13 @@ not exist, the workspace is created. Do not run it from inside an omp pane
 
 - Detach: `Ctrl-b d`
 - Re-enter: `omp`
+- Close the current tab: `x` in the board, then `y`
+- Back to the previous tab: `Ctrl-b l`
 - Kill the workspace: `tmux kill-session -t unity`
+
+The workspace opens with focus on the board. `Tab` cycles board → omp → viewer;
+`Ctrl-b` + arrows also moves panes; clicking a pane focuses it. The selected
+row is highlighted and marked `▶`.
 
 ## Navigation
 
@@ -82,6 +88,18 @@ Everything happens in the board pane:
 
 From Obsidian you can still create `Unity/items/<id>.md` with the frontmatter
 below; the board picks it up on the next refresh.
+
+## Sessions
+
+Opening an item:
+
+- no session: starts omp with an item-aware prompt (title, project, status,
+  file, and note excerpt);
+- session: resumes it with `omp --resume <file>`.
+
+The live session path is stored in the item's `session:` field by the
+extension on `session_start`. The board marks resumable items with `↻`. If the
+file is gone, the link is cleared and a fresh seeded session starts.
 
 ## Obsidian schema
 
