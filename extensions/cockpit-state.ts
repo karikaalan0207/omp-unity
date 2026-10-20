@@ -1,4 +1,4 @@
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { copyFileSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import type { ExtensionAPI, ExtensionContext } from "@oh-my-pi/pi-coding-agent";
 
@@ -46,12 +46,33 @@ const mainFile = cockpitDir ? join(cockpitDir, "main.json") : undefined;
 const agentsDir = cockpitDir ? join(cockpitDir, "agents") : undefined;
 const unityVault = process.env.UNITY_VAULT;
 const unityItem = process.env.UNITY_ITEM;
+const unityProject = process.env.UNITY_PROJECT;
+const unityKind = unityProject ? "projects" : unityItem ? "items" : "";
+const unityId = unityProject || unityItem || "";
+const unitySafeId = unityId.replace(/[^a-zA-Z0-9_.-]/g, "");
+const unityPortable = unityKind && unitySafeId
+	? join("Unity", unityKind, unitySafeId, "session.jsonl")
+	: "";
+let lastUnitySync = 0;
 
-// Best-effort: write the live omp session back into the Obsidian item.
-function touchUnityItem(patch: Record<string, string>): void {
-	if (!unityVault || !unityItem) return;
+// Best-effort: copy the live transcript into the vault for cross-device resume.
+function syncUnitySession(source?: string): void {
+	if (!unityVault || !unityPortable || !source) return;
 	try {
-		const file = join(unityVault, "Unity", "items", `${unityItem.replace(/[^a-zA-Z0-9_.-]/g, "")}.md`);
+		const dest = join(unityVault, unityPortable);
+		if (source === dest) return;
+		mkdirSync(join(unityVault, "Unity", unityKind, unitySafeId), { recursive: true });
+		copyFileSync(source, dest);
+	} catch {
+		// Sync is best-effort; the live session still works locally.
+	}
+}
+
+// Best-effort: write the live omp session back into the Obsidian item/project.
+function touchUnityDoc(patch: Record<string, string>, expectedSession?: string): void {
+	if (!unityVault || !unityKind || !unityId) return;
+	try {
+		const file = join(unityVault, "Unity", unityKind, `${unitySafeId}.md`);
 		const text = readFileSync(file, "utf8");
 		if (!text.startsWith("---")) return;
 		const end = text.indexOf("\n---", 3);
@@ -60,6 +81,11 @@ function touchUnityItem(patch: Record<string, string>): void {
 			.slice(text.indexOf("\n", 3) + 1, end)
 			.split(/\r?\n/)
 			.filter(Boolean);
+		if (expectedSession !== undefined) {
+			const current = head.find(line => line.startsWith("session:"))?.slice("session:".length).trim() || "";
+			const local = head.find(line => line.startsWith("session_local:"))?.slice("session_local:".length).trim() || "";
+			if (current !== expectedSession && local !== expectedSession) return;
+		}
 		const body = text.slice(end + 4);
 		for (const [key, value] of Object.entries({ ...patch, updated: new Date().toISOString() })) {
 			if (!value) continue;
@@ -70,7 +96,7 @@ function touchUnityItem(patch: Record<string, string>): void {
 		}
 		writeFileSync(file, `---\n${head.join("\n")}\n---${body}`, "utf8");
 	} catch {
-		// Item tracking is best-effort.
+		// Item/project tracking is best-effort.
 	}
 }
 
@@ -276,9 +302,12 @@ export default function cockpitState(pi: ExtensionAPI): void {
 		state.title = pi.getSessionName() ?? "session";
 		state.running = false;
 		state.now = "idle";
-		touchUnityItem({
-			status: "focus",
-			session: ctx.sessionManager.getSessionFile() || "",
+		const sessionFile = ctx.sessionManager.getSessionFile() || "";
+		touchUnityDoc({
+			...(unityKind === "items" ? { status: "focus" } : {}),
+			session: sessionFile ? unityPortable : "",
+			session_local: sessionFile,
+			session_state: "running",
 		});
 		writeMain();
 	});
@@ -294,6 +323,8 @@ export default function cockpitState(pi: ExtensionAPI): void {
 		}
 		state.running = false;
 		state.now = "idle";
+		syncUnitySession(state.sessionFile);
+		touchUnityDoc({ session_state: "paused" }, state.sessionFile || "");
 		writeMain();
 	});
 
@@ -345,6 +376,10 @@ export default function cockpitState(pi: ExtensionAPI): void {
 		state.running = false;
 		state.now = "idle";
 		if (!state.insights.updated) state.phase = "idle";
+		if (state.sessionFile && Date.now() - lastUnitySync > 5000) {
+			lastUnitySync = Date.now();
+			syncUnitySession(state.sessionFile);
+		}
 		writeMain();
 		maybeInsights(ctx);
 	});

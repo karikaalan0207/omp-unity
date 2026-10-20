@@ -1,7 +1,8 @@
 # omp-unity
 
-An Obsidian-backed workspace for omp: focus, items, projects, and a cockpit in
-one tmux tab. Every tab is a workspace; every item can carry its own omp session.
+An Obsidian-backed workspace for omp: focus, items, projects, per-target todos,
+and a cockpit in one tmux workspace. Every tab carries its own omp session; the
+vault carries the state needed to continue on another machine.
 
 ## Install (macOS)
 
@@ -28,7 +29,7 @@ bootstrap.
 
 ## Layout
 
-The main tab is the workspace:
+The parent tab is the global board:
 
 ```text
 ┌───────────────────────┬───────────────────────┐
@@ -39,9 +40,20 @@ The main tab is the workspace:
 └───────────────────────┴───────────────────────┘
 ```
 
-Opening an item creates a **chat-only tab** for that item. The board stays in
-the main tab; quitting the item chat closes its tab. `Ctrl-b l` returns to the
-main tab; `[` `]` switch tabs from the board.
+An item or project opens its own tab. The tab keeps the chat and viewer, but
+the lower-right Unity panel becomes that target's **todos and handoff**:
+
+```text
+┌───────────────────────┬───────────────────────┐
+│                       │  cockpit viewer       │
+│  target omp session   │                       │
+│                       ├───────────────────────┤
+│                       │  todos · docs · state │
+└───────────────────────┴───────────────────────┘
+```
+
+`g` in the target panel returns to the parent board. `[` `]` switch tabs,
+`Tab` cycles panes, and `Ctrl-b l` returns to the previous tab.
 
 ## Getting in and out
 
@@ -49,51 +61,123 @@ Run `omp` from a normal Terminal to attach to the `unity` session; if it does
 not exist, the workspace is created. Do not run it from inside an omp pane
 (`OMP_COCKPIT_DIR` set) — that starts a nested omp instead.
 
-- Quitting the chat (`/quit` or Ctrl-D) closes its whole tab
-- Closing the terminal (detach) closes the workspace by default
-- Keep it across detach: `UNITY_KEEP=1 omp`; then `omp` reattaches
-- Re-enter: `omp`
-- Close the current tab: `x` in the board, then `y`
-- Back to the previous tab: `Ctrl-b l`
-- Kill the workspace: `tmux kill-session -t unity`
+- Quitting a target chat (`/quit` or Ctrl-D) closes its tab; its session is saved
+- Detaching the workspace pauses every running item/project session and closes
+  the workspace by default
+- Re-enter with `omp`; the board shows each target as paused/running, and
+  `enter` resumes it
+- Keep the workspace across detach: `UNITY_KEEP=1 omp`; then `omp` reattaches
+- Exit and pause everything: `x` or `q` in the parent board, then `y`
+- Kill without the UI: `tmux kill-session -t unity`
 
 The workspace opens with focus on the board. `Tab` cycles board → omp → viewer;
-`Ctrl-b` + arrows also moves panes; clicking a pane focuses it. The selected
-row is highlighted and marked `▶`.
+`Ctrl-b` + arrows also moves panes. Clicking a pane works: `mouse` is enabled
+per workspace session, never globally.
 
 ## Navigation
 
-Board (`unity-board.mjs`):
+Parent board (`unity-board.mjs`):
 
 | Key | Action |
 |---|---|
 | `j` / `k`, arrows | move |
-| `space` / `s` | toggle focus ↔ stash |
-| `enter` | open the item; resumes its saved session or seeds one |
-| `R` | start a fresh session for the item, with context |
-| `n` / `p` | new item / new project (type, then Enter) |
-| `[` / `]` | previous / next workspace tab |
-| `q` | quit the board |
-| `prefix + arrow` | move focus between omp, viewer, and board |
-| `prefix + z` | zoom the focused pane |
+| `space` | toggle this item's focus ↔ stash (multiple items can be focused) |
+| `enter` | open the selected item/project; resumes or starts its session |
+| `N` | start a fresh session with context |
+| `p` | pause the selected session (keeps the transcript) |
+| `s` | stop the selected session (clears the link; asks `y/n`) |
+| `n` / `P` | new item / new project (type, then Enter) |
+| `v` | switch items ↔ projects |
+| `d` / `r` / `m` | delete / rename / move |
+| `x` / `q` | exit workspace (pauses all sessions; asks `y/n`) |
+| `[` / `]` | previous / next tab |
+| `Tab` | next pane |
+| `u` | update the runtime |
+| `?` | help |
+| `Ctrl-W` | delete a word while typing |
+
+Item/project Unity panel:
+
+| Key | Action |
+|---|---|
+| `j` / `k`, arrows | move |
+| `space` / `enter` | toggle todo done |
+| `a` | add todo |
+| `r` / `d` | rename / delete todo (delete asks `y/n`) |
+| `o` | open `handoff.md` |
+| `g` | back to the parent workspace |
+| `x` / `q` | pause this tab and close it (asks `y/n`) |
+| `s` | stop this session (clears the link) |
+| `[` / `]` / `Tab` | tabs / next pane |
+| `?` | help |
+
+Hints are contextual: they change with the selected row, whether a session is
+running or paused, the current view, and input/confirm mode. The parent board
+shows `●` for running, `⏸` for paused, `☑` todo progress, and `▶` for focus.
 
 Viewer: `n` new tab, `f` fork the session, `q` quit.
-tmux: `prefix + l` returns to the previous tab, `prefix + n/p` cycles tabs.
 
-## Adding, editing, deleting
+## Todos and documentation
 
-Everything happens in the board pane:
+Each target owns a markdown file plus a state directory:
 
-- `n` new item (inherits the selected item's project; otherwise inbox)
-- `p` new project
-- `v` switch between items and projects; `enter` on a project starts a new item there
-- `r` rename selected item/project
-- `m` move selected item to another project (`inbox` clears it)
-- `d` delete selected item/project (asks `y/n`); deleting a project moves its items to inbox
-- `space` toggle focus/stash, `enter` open
+```text
+<vault>/Unity/
+  board.md
+  items/<id>.md                  # frontmatter + todos + notes
+  items/<id>/
+    README.md                    # human-readable documentation
+    handoff.md                   # current state / next step / decisions
+    state.yml                    # machine-readable progression and session state
+    session.jsonl                # portable transcript (when a session exists)
+  projects/<id>.md
+  projects/<id>/...
+  sessions/                      # legacy notes/session copies
+  registry.yml                   # skills and repos
+```
 
-From Obsidian you can still create `Unity/items/<id>.md` with the frontmatter
-below; the board picks it up on the next refresh.
+`items/<id>.md` and `projects/<id>.md` keep the todos as normal Obsidian
+checkboxes:
+
+```markdown
+## Todos
+- [ ] first step
+- [x] second step
+```
+
+The Unity panel edits those same checkboxes. `state.yml` is maintained by the
+store (status, session state, todo counts, next step, updated). `handoff.md` is
+maintained by you and the assistant: the assistant is instructed to keep its
+current state and next step current. The `<!-- unity:auto -->` marker makes the
+Next step line follow the first open todo; remove the marker to freeze it.
+`README.md` is freeform project/item documentation.
+
+## Sessions
+
+Opening an item or project:
+
+- no session: starts omp with a context pack (title, project, status, file,
+  notes, todos, handoff, sibling items);
+- session: restores it with `omp --restore <file>`. `N` in the board starts a
+  fresh seeded session instead, including a brief of the previous session.
+
+The extension writes the live session into the target's frontmatter on
+`session_start`:
+
+```yaml
+session: Unity/items/fix-navigation/session.jsonl   # portable, vault-relative
+session_local: /Users/me/.omp/agent/sessions/....jsonl # this machine only
+session_state: running                              # running | paused | stopped
+```
+
+The transcript is copied into the target directory after turns and on
+shutdown/pause. Because the transcript, state, todos, and handoff all live in
+the vault, another machine with the same Unity setup can open the item,
+resolve the portable session copy, and continue — even though the absolute
+local session path does not exist there.
+
+The board marks resumable targets with `●` / `⏸`. If neither the local nor the
+portable file exists, the link is cleared and a fresh seeded session starts.
 
 ## Updates
 
@@ -107,51 +191,18 @@ runtime (launcher, board, viewer, store, extension, bootstrap, updater) from
 the public repo. Your context repo, AGENTS.local.md, skills, and vault are
 never touched. Restart the workspace afterwards.
 
-## Sessions
+## Session and tmux hygiene
 
-Opening an item:
-
-- no session: starts omp with an item context pack (title, project, status,
-  file, item notes, sibling items);
-- session: resumes it with `omp --resume <file>`.
-
-`R` in the board starts a **fresh** session instead. It feeds the same context
-pack plus a brief of the previous session (last user/assistant messages), so
-you can iterate without inheriting the old thread.
-
-The live session path is stored in the item's `session:` field by the
-extension on `session_start`. The board marks resumable items with `↻`. If the
-file is gone, the link is cleared and a fresh seeded session starts.
-
-## Obsidian schema
-
-The vault gets a `Unity/` directory. Create it by hand or let the bootstrap do it:
-
-```text
-<vault>/Unity/
-  board.md              # focus: <item-id>
-  items/<id>.md
-  projects/<id>.md
-  sessions/<id>.md      # optional notes
-  registry.yml          # skills and repos
-```
-
-Item frontmatter:
-
-```yaml
----
-id: fix-navigation
-title: Fix navigation
-status: focus           # focus | stash
-project: omp-unity
-session: /Users/me/.omp/agent/sessions/....jsonl
-created: 2026-10-20T08:00:00.000Z
-updated: 2026-10-20T08:05:00.000Z
----
-```
-
-Opening an item writes `status: active` and, once omp starts, the live session
-file. The next `enter` resumes it with `omp --resume`.
+- All tmux options are set per workspace session: `mouse`, `pane-border-status`,
+  `destroy-unattached`, and the status line. No global options, key bindings, or
+  mouse bindings are written.
+- Per-window cockpit state lives under `$TMPDIR/omp-unity-<session>-<pid>/` and
+  is removed with the window; the launcher removes the root on exit, and sweeps
+  stale roots whose session is gone on the next launch.
+- Detach pauses all running sessions before the workspace is torn down; the
+  next launch reconciles any session whose tab disappeared.
+- `UNITY_KEEP=1` skips the teardown so the workspace and its sessions survive
+  detach.
 
 `registry.yml`:
 
