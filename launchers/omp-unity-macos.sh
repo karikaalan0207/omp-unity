@@ -118,6 +118,10 @@ if [[ -n "${TMUX:-}" ]]; then
 fi
 
 SESSION_NAME="unity"
+if "$TMUX_BIN" has-session -t "$SESSION_NAME" 2>/dev/null; then
+  "$TMUX_BIN" attach -t "$SESSION_NAME"
+  exit 0
+fi
 NAME="${ITEM:-main}"
 "$TMUX_BIN" new-session -d -s "$SESSION_NAME" -n "$NAME" -c "$VAULT" "$OMP_CMD"
 "$TMUX_BIN" split-window -h -l 45% -t "$SESSION_NAME:$NAME" -c "$VAULT" "$VIEWER_CMD"
@@ -130,5 +134,4 @@ NAME="${ITEM:-main}"
 "$TMUX_BIN" select-pane -t "$SESSION_NAME:$NAME.0" -T omp
 "$TMUX_BIN" select-pane -t "$SESSION_NAME:$NAME.1" -T viewer
 "$TMUX_BIN" select-pane -t "$SESSION_NAME:$NAME.2" -T board
-"$TMUX_BIN" set-hook -t "$SESSION_NAME" client-attached "set-option -t '$SESSION_NAME' destroy-unattached on"
 "$TMUX_BIN" attach -t "$SESSION_NAME"

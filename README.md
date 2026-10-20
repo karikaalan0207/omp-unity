@@ -39,6 +39,16 @@ One tmux window per workspace tab:
 └───────────────────────┴───────────────────────┘
 ```
 
+## Getting in and out
+
+Run `omp` from a normal Terminal to attach to the `unity` session; if it does
+not exist, the workspace is created. Do not run it from inside an omp pane
+(`OMP_COCKPIT_DIR` set) — that starts a nested omp instead.
+
+- Detach: `Ctrl-b d`
+- Re-enter: `omp`
+- Kill the workspace: `tmux kill-session -t unity`
+
 ## Navigation
 
 Board (`unity-board.mjs`):
