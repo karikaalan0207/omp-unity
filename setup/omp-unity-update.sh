@@ -45,7 +45,15 @@ else
     extensions/cockpit-state.ts setup/omp-unity-bootstrap.sh \
     setup/omp-unity-update.sh setup/omp-unity-wsl-setup.sh; do
     if [[ -f "$SRC/$f" ]]; then
-      cp "$SRC/$f" "$AGENT_DIR/$f"
+      # Replace via rename so a running updater is never truncated in place.
+      tmp="$AGENT_DIR/$f.tmp.$$"
+      mkdir -p "${tmp:h}"
+      if cp "$SRC/$f" "$tmp" && mv "$tmp" "$AGENT_DIR/$f"; then
+        :
+      else
+        warn "could not install $f"
+        rm -f "$tmp"
+      fi
     else
       warn "missing $f in the update"
     fi
