@@ -126,6 +126,21 @@ fi
 
 export PATH="$HOME/.local/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin${PATH:+:$PATH}"
 
+TMP_OVERLAY=""
+trap '[[ -n "$TMP_OVERLAY" ]] && rm -rf "$TMP_OVERLAY"' EXIT
+
+if [[ ! -f "$OVERLAY_DIR/launchers/cockpit-viewer.mjs" ]]; then
+  if (( DRY )); then
+    info "would fetch the omp-unity runtime from $DEFAULT_REPO"
+  else
+    TMP_OVERLAY="$(mktemp -d "${TMPDIR:-/tmp}/omp-unity-runtime.XXXXXX")"
+    info "Fetching the omp-unity runtime"
+    git clone --depth 1 "$DEFAULT_REPO" "$TMP_OVERLAY/omp-unity" >/dev/null 2>&1 || \
+      die "could not fetch the omp-unity runtime from $DEFAULT_REPO"
+    OVERLAY_DIR="$TMP_OVERLAY/omp-unity"
+  fi
+fi
+
 if [[ -z "$SHELL_PATH" ]]; then
   if have zsh; then SHELL_PATH="$(command -v zsh)"; else SHELL_PATH="/bin/zsh"; fi
 fi
