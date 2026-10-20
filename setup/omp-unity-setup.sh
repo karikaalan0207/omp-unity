@@ -311,7 +311,7 @@ fi
 OVERLAY_DIR="$(cd "$SELF_DIR/.." && pwd)"
 if [[ -d "$AGENT_DIR" && -f "$OVERLAY_DIR/launchers/cockpit-viewer.mjs" ]]; then
   mkdir -p "$AGENT_DIR/launchers" "$AGENT_DIR/extensions" "$AGENT_DIR/setup" "$AGENT_DIR/lib"
-  for f in VERSION lib/unity-store.mjs lib/unity-cli.mjs launchers/omp-unity-macos.sh launchers/cockpit-viewer.mjs launchers/unity-board.mjs extensions/cockpit-state.ts setup/omp-unity-bootstrap.sh setup/omp-unity-update.sh; do
+  for f in VERSION lib/unity-store.mjs lib/unity-cli.mjs launchers/omp-unity-macos.sh launchers/omp-unity-wsl.sh launchers/cockpit-viewer.mjs launchers/unity-board.mjs extensions/cockpit-state.ts setup/omp-unity-bootstrap.sh setup/omp-unity-update.sh setup/omp-unity-wsl-setup.sh; do
     if [[ ! -f "$AGENT_DIR/$f" && -f "$OVERLAY_DIR/$f" ]]; then
       cp "$OVERLAY_DIR/$f" "$AGENT_DIR/$f" && info "Installed $f"
     fi

@@ -40,15 +40,19 @@ if git -C "$AGENT_DIR" remote -v 2>/dev/null | grep -qF "$REPO"; then
 else
   mkdir -p "$AGENT_DIR/lib" "$AGENT_DIR/launchers" "$AGENT_DIR/extensions" "$AGENT_DIR/setup"
   for f in VERSION lib/unity-store.mjs lib/unity-cli.mjs \
-    launchers/omp-unity-macos.sh launchers/unity-board.mjs launchers/cockpit-viewer.mjs \
-    extensions/cockpit-state.ts setup/omp-unity-bootstrap.sh setup/omp-unity-update.sh; do
+    launchers/omp-unity-macos.sh launchers/omp-unity-wsl.sh \
+    launchers/unity-board.mjs launchers/cockpit-viewer.mjs \
+    extensions/cockpit-state.ts setup/omp-unity-bootstrap.sh \
+    setup/omp-unity-update.sh setup/omp-unity-wsl-setup.sh; do
     if [[ -f "$SRC/$f" ]]; then
       cp "$SRC/$f" "$AGENT_DIR/$f"
     else
       warn "missing $f in the update"
     fi
   done
-  chmod +x "$AGENT_DIR/launchers/omp-unity-macos.sh" "$AGENT_DIR/setup/omp-unity-bootstrap.sh" "$AGENT_DIR/setup/omp-unity-update.sh"
+  chmod +x "$AGENT_DIR/launchers/omp-unity-macos.sh" "$AGENT_DIR/launchers/omp-unity-wsl.sh" \
+    "$AGENT_DIR/setup/omp-unity-bootstrap.sh" "$AGENT_DIR/setup/omp-unity-update.sh" \
+    "$AGENT_DIR/setup/omp-unity-wsl-setup.sh"
 fi
 
 info "updated $OLD → $NEW"

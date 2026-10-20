@@ -27,6 +27,65 @@ The installer overlays the Unity runtime into the context repo, so a
 context-only repo still gets the launcher, viewer, board, extension, and
 bootstrap.
 
+## Install (Windows via WSL2)
+
+The Windows port runs the workspace inside WSL2 Ubuntu. Windows Terminal is the
+host; tmux inside WSL owns the tabs and panes. omp, the board, and the viewer all
+run in Linux. Windows commands and GUI tools still work through WSL interop.
+
+Requirements: Windows 11, WSL2 Ubuntu, Windows Terminal, and optionally
+Obsidian on Windows.
+
+From a WSL Ubuntu shell:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/karikaalan0207/omp-unity/main/setup/omp-unity-wsl-setup.sh -o /tmp/omp-unity-wsl-setup.sh
+bash /tmp/omp-unity-wsl-setup.sh --vault "C:\Users\<you>\Karikaalan's Vault"
+```
+
+`--vault` accepts a Windows path or a WSL path. The installer converts it with
+`wslpath` and writes the WSL path into `AGENTS.local.md`.
+
+The default context repo is the public `omp-unity` template. To use a private
+context repo:
+
+```bash
+gh auth login
+bash /tmp/omp-unity-wsl-setup.sh \
+  --vault "C:\Users\<you>\Karikaalan's Vault" \
+  --context-repo https://github.com/karikaalan0207/omp-config.git
+```
+
+The vault stays on the Windows filesystem so Obsidian opens it natively. WSL
+sees it through `/mnt/c`; writes are slower than a native Linux filesystem, but
+the board only touches small Markdown files.
+
+Start it from WSL:
+
+```bash
+omp
+```
+
+Or from Windows, with a Windows Terminal profile:
+
+```json
+{
+  "name": "omp unity",
+  "commandline": "wsl.exe -- zsh -lic \"exec ~/.omp/agent/launchers/omp-unity-wsl.sh\""
+}
+```
+
+A `windows\omp-unity.cmd` entrypoint is included for a Windows checkout. Set
+`OMP_WSL_DISTRO` if Ubuntu is not the default distro.
+
+Windows tools remain available from the WSL shell:
+
+```bash
+cmd.exe /c ver
+powershell.exe -NoProfile -Command "Get-ComputerInfo"
+winget.exe install ...
+```
+
 ## Layout
 
 The parent tab is the global board:
