@@ -190,7 +190,7 @@ EOF
 fi
 
 # The extension loads from ~/.omp/agent/extensions. Point out a broken overlay.
-for f in "$AGENT_DIR/launchers/cockpit-viewer.mjs" "$AGENT_DIR/launchers/unity-board.mjs" "$AGENT_DIR/extensions/unity-state.ts"; do
+for f in "$AGENT_DIR/launchers/cockpit-viewer.mjs" "$AGENT_DIR/launchers/unity-board.mjs" "$AGENT_DIR/extensions/cockpit-state.ts"; do
   [[ -f "$f" ]] || warn "Missing workspace asset: $f"
 done
 
