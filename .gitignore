@@ -1,0 +1,9 @@
+.DS_Store
+node_modules/
+config.local.yml
+AGENTS.local.md
+sessions/
+*.db
+*.db-shm
+*.db-wal
+*.log

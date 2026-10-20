@@ -1,0 +1,18 @@
+contextFiles:
+  extra:
+    - AGENTS.local.md
+skillful: false
+skills:
+  enableSkillCommands: true
+symbolPreset: ascii
+theme:
+  dark: dark-gruvbox
+  light: dark-gruvbox
+display:
+  showTokenUsage: true
+defaultThinkingLevel: high
+bash:
+  gitGuard: true
+task:
+  isolation:
+    enabled: true
