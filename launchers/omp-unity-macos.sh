@@ -92,7 +92,11 @@ open_window() {
 
 if [[ -n "${TMUX:-}" ]]; then
   # A window is one workspace tab. Reuse an item tab when it already exists.
-  SESSION_CUR="$("$TMUX_BIN" display-message -p '#{session_name}')"
+  SESSION_CUR="$("$TMUX_BIN" display-message -p -t "${TMUX_PANE:-}" '#{session_name}' 2>/dev/null || true)"
+  if [[ -z "$SESSION_CUR" ]]; then
+    SESSION_CUR="$("$TMUX_BIN" list-sessions -F '#{session_name}' 2>/dev/null | head -1 || true)"
+  fi
+  [[ -n "$SESSION_CUR" ]] || { echo "could not resolve the tmux session" >&2; exit 1; }
   if [[ -n "$ITEM" ]]; then
     existing="$("$TMUX_BIN" list-windows -t "$SESSION_CUR" -F '#{window_name} #{window_index}' | awk -v n="$ITEM" '$1 == n { print $2; exit }')"
     if [[ -n "$existing" ]]; then
