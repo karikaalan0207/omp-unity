@@ -52,6 +52,8 @@ Board (`unity-board.mjs`):
 | `n` / `p` | new item / new project (type, then Enter) |
 | `[` / `]` | previous / next workspace tab |
 | `q` | quit the board |
+| `prefix + arrow` | move focus between omp, viewer, and board |
+| `prefix + z` | zoom the focused pane |
 
 Viewer: `n` new tab, `f` fork the session, `q` quit.
 tmux: `prefix + l` returns to the previous tab, `prefix + n/p` cycles tabs.

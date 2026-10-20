@@ -106,7 +106,7 @@ function render() {
 		line(
 			mode === "input"
 				? `> ${mode === "item" ? "new item" : "new project"}: ${input}`
-				: message || "n item · p project · space status · enter open · f focus · [ ] tabs · q quit",
+				: message || "n item · p project · space status · enter open · f focus · [ ] tabs · prefix+arrows panes · q",
 			columns,
 			mode === "input" ? ACCENT : DIM,
 		),
