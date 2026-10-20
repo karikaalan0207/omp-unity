@@ -58,6 +58,30 @@ Board (`unity-board.mjs`):
 Viewer: `n` new tab, `f` fork the session, `q` quit.
 tmux: `prefix + l` returns to the previous tab, `prefix + n/p` cycles tabs.
 
+## Adding items and projects
+
+From the board: `n` creates an item, `p` creates a project. A new item
+inherits the currently selected item's project; with nothing selected it goes
+to the inbox.
+
+From any terminal (the bootstrap links `unity` into `~/.omp/bin`):
+
+```bash
+unity project "omp-unity"
+unity add "Fix navigation" omp-unity
+unity add "Inbox thought"
+unity items
+unity projects
+unity focus fix-navigation
+unity set fix-navigation active
+```
+
+`UNITY_VAULT=/path/to/vault` overrides the vault recorded in
+`AGENTS.local.md`. `unity open <id>` opens the item in a workspace tab.
+
+From Obsidian, create `Unity/items/<id>.md` with the frontmatter below; the
+board picks it up on the next refresh.
+
 ## Obsidian schema
 
 The vault gets a `Unity/` directory. Create it by hand or let the bootstrap do it:

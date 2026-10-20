@@ -38,6 +38,7 @@ let scroll = 0;
 let mode = "list";
 let input = "";
 let message = "";
+let help = false;
 
 function fit(value, columns) {
 	const plain = value.replace(/\x1b\[[0-9;]*m/g, "");
@@ -71,7 +72,7 @@ function render() {
 	selectedId = items[selected]?.id || "";
 	const focusItem = items.find(item => item.id === focus);
 
-	const listRows = Math.max(3, rows - 9 - Math.min(projects.length, 3));
+	const listRows = Math.max(3, rows - 10 - Math.min(projects.length, 3));
 	if (selected < scroll) scroll = selected;
 	if (selected >= scroll + listRows) scroll = selected - listRows + 1;
 	const visible = items.slice(scroll, scroll + listRows);
@@ -82,7 +83,17 @@ function render() {
 		line("─".repeat(columns), columns, DIM),
 		line(`ITEMS  ${items.length}`, columns, BOLD),
 	];
-	if (visible.length === 0) {
+	if (help) {
+		output.push(line("  j/k ↑/↓   move", columns, DIM));
+		output.push(line("  space     cycle status", columns, DIM));
+		output.push(line("  enter     open item in a new tab", columns, DIM));
+		output.push(line("  f         set focus", columns, DIM));
+		output.push(line("  n / p     new item / project", columns, DIM));
+		output.push(line("  [ ]       previous / next tab", columns, DIM));
+		output.push(line("  Tab       next pane (viewer/board)", columns, DIM));
+		output.push(line("  Ctrl-b ←  move panes", columns, DIM));
+		output.push(line("  ?         close help", columns, DIM));
+	} else if (visible.length === 0) {
 		output.push(line("  no items yet", columns, DIM));
 	} else {
 		for (let index = 0; index < visible.length; index += 1) {
@@ -102,15 +113,12 @@ function render() {
 	if (projects.length === 0) output.push(line("  none", columns, DIM));
 
 	output.push(line("─".repeat(columns), columns, DIM));
-	output.push(
-		line(
-			mode === "input"
-				? `> ${mode === "item" ? "new item" : "new project"}: ${input}`
-				: message || "n item · p project · space status · enter open · f focus · [ ] tabs · prefix+arrows panes · q",
-			columns,
-			mode === "input" ? ACCENT : DIM,
-		),
-	);
+	if (mode === "input") {
+		output.push(line(`> ${mode === "item" ? "new item" : "new project"}: ${input}`, columns, ACCENT));
+	} else {
+		output.push(line(message || "j/k move · space status · enter open · f focus", columns, DIM));
+		output.push(line("n item · p project · [ ] tabs · Tab pane · ? help · q", columns, DIM));
+	}
 
 	while (output.length < rows) output.push("".padEnd(columns));
 	process.stdout.write(`\x1b[H${output.slice(0, rows).join("\n")}\x1b[0m`);
@@ -151,6 +159,10 @@ function exit() {
 }
 
 function handleKey(key) {
+	if (help) {
+		if (key === "?" || key === "\x1b") help = false;
+		return;
+	}
 	if (mode !== "list") {
 		const kind = mode;
 		if (key === "\r" || key === "\n") {
@@ -218,6 +230,12 @@ function handleKey(key) {
 			}
 			break;
 		}
+		case "?":
+			help = true;
+			break;
+		case "\t":
+			if (process.env.TMUX) spawnSync("tmux", ["select-pane", "-t", ":.+"], { stdio: "ignore" });
+			break;
 		case "n":
 			mode = "item";
 			input = "";

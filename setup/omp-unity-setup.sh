@@ -310,8 +310,8 @@ fi
 # carries personal context and no launchers or extension.
 OVERLAY_DIR="$(cd "$SELF_DIR/.." && pwd)"
 if [[ -d "$AGENT_DIR" && -f "$OVERLAY_DIR/launchers/cockpit-viewer.mjs" ]]; then
-  mkdir -p "$AGENT_DIR/launchers" "$AGENT_DIR/extensions" "$AGENT_DIR/setup" "$AGENT_DIR/lib"
-  for f in lib/unity-store.mjs lib/unity-cli.mjs launchers/omp-unity-macos.sh launchers/cockpit-viewer.mjs launchers/unity-board.mjs extensions/cockpit-state.ts setup/omp-unity-bootstrap.sh; do
+  mkdir -p "$AGENT_DIR/launchers" "$AGENT_DIR/extensions" "$AGENT_DIR/setup" "$AGENT_DIR/lib" "$AGENT_DIR/bin"
+  for f in lib/unity-store.mjs lib/unity-cli.mjs bin/unity launchers/omp-unity-macos.sh launchers/cockpit-viewer.mjs launchers/unity-board.mjs extensions/cockpit-state.ts setup/omp-unity-bootstrap.sh; do
     if [[ ! -f "$AGENT_DIR/$f" && -f "$OVERLAY_DIR/$f" ]]; then
       cp "$OVERLAY_DIR/$f" "$AGENT_DIR/$f" && info "Installed $f"
     fi

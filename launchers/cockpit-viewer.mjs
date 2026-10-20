@@ -142,7 +142,7 @@ function render() {
 		}
 	}
 
-	output.push(line("↑↓ scroll · PgUp/PgDn · Home/End · n new tab · f fork · q quit", columns, DIM));
+	output.push(line("↑↓ scroll · n tab · f fork · Tab pane · q quit", columns, DIM));
 
 	while (output.length < rows) output.push(" ".repeat(columns));
 	process.stdout.write(`\x1b[H${output.slice(0, rows).join("\n")}\x1b[0m`);
@@ -168,6 +168,10 @@ process.stdin.resume();
 
 process.stdin.on("data", chunk => {
 	const key = chunk.toString();
+	if (key === "\t") {
+		if (process.env.TMUX) spawn("tmux", ["select-pane", "-t", ":.+"], { stdio: "ignore" }).unref();
+		return;
+	}
 	if (key === "n") {
 		spawnLauncher([]);
 		return;

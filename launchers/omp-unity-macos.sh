@@ -87,6 +87,13 @@ open_window() {
   "$TMUX_BIN" split-window -h -l 45% -t "$session:$win" -c "$VAULT" "$VIEWER_CMD"
   "$TMUX_BIN" split-window -v -l 50% -t "$session:$win.1" -c "$VAULT" "$BOARD_CMD"
   "$TMUX_BIN" select-pane -t "$session:$win.0"
+  "$TMUX_BIN" set-option -g mouse on
+  "$TMUX_BIN" set-option -t "$session" status-right ' tab pane · C-b arrows · C-b l back '
+  "$TMUX_BIN" set-option -t "$session:$win" pane-border-status top
+  "$TMUX_BIN" set-option -t "$session:$win" pane-border-format ' #{pane_title} '
+  "$TMUX_BIN" select-pane -t "$session:$win.0" -T omp
+  "$TMUX_BIN" select-pane -t "$session:$win.1" -T viewer
+  "$TMUX_BIN" select-pane -t "$session:$win.2" -T board
   print -r -- "$win"
 }
 
@@ -116,5 +123,12 @@ NAME="${ITEM:-main}"
 "$TMUX_BIN" split-window -h -l 45% -t "$SESSION_NAME:$NAME" -c "$VAULT" "$VIEWER_CMD"
 "$TMUX_BIN" split-window -v -l 50% -t "$SESSION_NAME:$NAME.1" -c "$VAULT" "$BOARD_CMD"
 "$TMUX_BIN" select-pane -t "$SESSION_NAME:$NAME.0"
+"$TMUX_BIN" set-option -g mouse on
+"$TMUX_BIN" set-option -t "$SESSION_NAME" status-right ' tab pane · C-b arrows · C-b l back '
+"$TMUX_BIN" set-option -t "$SESSION_NAME:$NAME" pane-border-status top
+"$TMUX_BIN" set-option -t "$SESSION_NAME:$NAME" pane-border-format ' #{pane_title} '
+"$TMUX_BIN" select-pane -t "$SESSION_NAME:$NAME.0" -T omp
+"$TMUX_BIN" select-pane -t "$SESSION_NAME:$NAME.1" -T viewer
+"$TMUX_BIN" select-pane -t "$SESSION_NAME:$NAME.2" -T board
 "$TMUX_BIN" set-hook -t "$SESSION_NAME" client-attached "set-option -t '$SESSION_NAME' destroy-unattached on"
 "$TMUX_BIN" attach -t "$SESSION_NAME"
