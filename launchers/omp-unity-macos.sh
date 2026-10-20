@@ -62,10 +62,10 @@ fi
 STATE_DIR="${TMPDIR:-/tmp}/omp-unity-$$"
 mkdir -p "$STATE_DIR"
 
-OMP_CMD="PATH='$PATH' UNITY_VAULT='$VAULT' UNITY_ITEM='$ITEM' OMP_COCKPIT_DIR='$STATE_DIR' '$OMP_BIN'"
-[[ -n "$SESSION" ]] && OMP_CMD="$OMP_CMD --resume '$SESSION'"
-VIEWER_CMD="PATH='$PATH' '$NODE_BIN' '$VIEWER' '$STATE_DIR' '$SELF'"
-BOARD_CMD="PATH='$PATH' UNITY_VAULT='$VAULT' '$NODE_BIN' '$BOARD' '$VAULT' '$SELF'"
+OMP_CMD="PATH=${(q)PATH} UNITY_VAULT=${(q)VAULT} UNITY_ITEM=${(q)ITEM} OMP_COCKPIT_DIR=${(q)STATE_DIR} ${(q)OMP_BIN}"
+[[ -n "$SESSION" ]] && OMP_CMD="$OMP_CMD --resume ${(q)SESSION}"
+VIEWER_CMD="PATH=${(q)PATH} ${(q)NODE_BIN} ${(q)VIEWER} ${(q)STATE_DIR} ${(q)SELF}"
+BOARD_CMD="PATH=${(q)PATH} UNITY_VAULT=${(q)VAULT} ${(q)NODE_BIN} ${(q)BOARD} ${(q)VAULT} ${(q)SELF}"
 
 window_name() {
   local session="$1" base name n
